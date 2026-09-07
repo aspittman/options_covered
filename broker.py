@@ -1,0 +1,110 @@
+"""Alpaca adapter. Constructed only by the CLI, never at import time."""
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+import pandas as pd
+from alpaca.data.enums import DataFeed, OptionsFeed
+from alpaca.data.historical import OptionHistoricalDataClient, StockHistoricalDataClient
+from alpaca.data.requests import OptionBarsRequest, OptionSnapshotRequest, StockBarsRequest, StockLatestTradeRequest
+from alpaca.data.timeframe import TimeFrame
+from alpaca.trading.client import TradingClient
+from alpaca.trading.enums import AssetStatus, ContractType, OrderSide, PositionIntent, QueryOrderStatus, TimeInForce
+from alpaca.trading.requests import GetCalendarRequest, GetOptionContractsRequest, GetOrdersRequest, LimitOrderRequest
+
+NY = ZoneInfo('America/New_York')
+
+
+class AlpacaBroker:
+    def __init__(self, key, secret, settings):
+        self.settings = settings
+        self.trading = TradingClient(key, secret, paper=settings.paper)
+        self.stocks = StockHistoricalDataClient(key, secret)
+        self.options = OptionHistoricalDataClient(key, secret)
+        self.feed = OptionsFeed(settings.option_feed)
+
+    def account(self):
+        return self.trading.get_account()
+
+    def clock(self):
+        return self.trading.get_clock()
+
+    def positions(self):
+        return self.trading.get_all_positions()
+
+    def open_orders(self):
+        # Fail closed at the API cap instead of silently missing reserved shares.
+        orders = self.trading.get_orders(GetOrdersRequest(status=QueryOrderStatus.OPEN, limit=500, nested=True))
+        if len(orders) >= 500:
+            raise RuntimeError('Open order response reached cap; cannot verify collateral')
+        return orders
+
+    def order(self, row):
+        if row['broker_id']:
+            return self.trading.get_order_by_id(row['broker_id'])
+        return self.trading.get_order_by_client_id(row['client_id'])
+
+    def cancel(self, order_id):
+        return self.trading.cancel_order_by_id(order_id)
+
+    def submit(self, client_id, symbol, qty, intent, price):
+        return self.trading.submit_order(LimitOrderRequest(
+            symbol=symbol, qty=qty, side=OrderSide.SELL if intent == 'sell_to_open' else OrderSide.BUY,
+            position_intent=PositionIntent(intent), limit_price=price, time_in_force=TimeInForce.DAY,
+            client_order_id=client_id))
+
+    def previous_session(self, today):
+        sessions = self.trading.get_calendar(GetCalendarRequest(start=today - timedelta(days=14),
+                                                                end=today - timedelta(days=1)))
+        if not sessions:
+            raise RuntimeError('No prior trading session found')
+        return max(s.date for s in sessions)
+
+    def bars(self, symbol, now):
+        result = self.stocks.get_stock_bars(StockBarsRequest(
+            symbol_or_symbols=symbol, timeframe=TimeFrame.Day, start=now - timedelta(days=200),
+            end=now, feed=DataFeed.IEX))
+        bars = result.data.get(symbol, [])
+        return pd.DataFrame([{'high': b.high, 'low': b.low, 'close': b.close} for b in bars],
+                            index=pd.DatetimeIndex([b.timestamp.astimezone(NY) for b in bars]))
+
+    def spot(self, symbol, now):
+        trade = self.stocks.get_stock_latest_trade(StockLatestTradeRequest(symbol_or_symbols=symbol, feed=DataFeed.IEX))[symbol]
+        if not -5 <= (now - trade.timestamp).total_seconds() <= self.settings.quote_age_seconds:
+            raise ValueError('Stale underlying trade')
+        if not 0 < float(trade.price) < float('inf'):
+            raise ValueError('Invalid underlying price')
+        return float(trade.price)
+
+    def contracts(self, symbol, spot, today):
+        request = GetOptionContractsRequest(
+            underlying_symbols=[symbol], status=AssetStatus.ACTIVE, type=ContractType.CALL,
+            expiration_date_gte=today + timedelta(days=self.settings.min_dte),
+            expiration_date_lte=today + timedelta(days=self.settings.max_dte),
+            strike_price_gte=str(spot), strike_price_lte=str(spot * 1.20), limit=1000)
+        contracts, seen = [], set()
+        while True:
+            result = self.trading.get_option_contracts(request)
+            contracts.extend(result.option_contracts or [])
+            token = result.next_page_token
+            if not token:
+                return contracts
+            if token in seen:
+                raise RuntimeError('Repeated option-contract pagination token')
+            seen.add(token)
+            request.page_token = token
+
+    def snapshots(self, symbols):
+        results = {}
+        for offset in range(0, len(symbols), 100):
+            results.update(self.options.get_option_snapshot(OptionSnapshotRequest(
+                symbol_or_symbols=symbols[offset:offset + 100], feed=self.feed)))
+        return results
+
+    def volumes(self, symbols, today):
+        results = {}
+        for offset in range(0, len(symbols), 100):
+            data = self.options.get_option_bars(OptionBarsRequest(
+                symbol_or_symbols=symbols[offset:offset + 100], timeframe=TimeFrame.Day,
+                start=datetime.combine(today, datetime.min.time(), tzinfo=NY), feed=self.feed))
+            results.update({s: sum(b.volume for b in bars) for s, bars in data.data.items()})
+        return results

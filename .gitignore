@@ -1,0 +1,9 @@
+.env
+events.json
+logs/
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+crash.log

@@ -38,10 +38,25 @@ an ongoing sideways regime can produce another call after the prior one closes
 and the five **calendar-day** cooldown expires.
 
 The default watchlist is SPY, QQQ, IWM and DIA. Set `UNDERLYINGS` to the shares
-you own and want to write calls against. The bot limits its exposure to two
-contracts total and one contract per underlying. `MAX_COVERED_VALUE=100000`
-limits the current value of shares backing its calls; it does not cap the value
-or losses of all stocks held in the account.
+you own and want to write calls against. This bot has a separate
+`VIRTUAL_STARTING_CAPITAL=25000` allocation. It opens at most
+`MAX_CONTRACTS_PER_TRADE=1`, and each 100-share lot must be worth no more than
+`MAX_UNDERLYING_VALUE_PER_POSITION=25000`. Aggregate covered exposure is capped
+at `MAX_COVERED_VALUE=25000`; neither limit uses the shared Alpaca account's
+buying power.
+
+Because four strategies share one Alpaca account, explicitly assign the exact
+100-share lot this bot controls. This records a virtual allocation and places no
+stock order:
+
+```bash
+python main.py --allocate-shares SPY --share-cost 450
+```
+
+The command refuses a lot whose current value exceeds $25,000, a lot already
+allocated in this ledger, or shares reserved by another account order. The
+allocation persists after a restart and remains strategy capital even while no
+call is open.
 
 ## Setup and first run
 
@@ -143,6 +158,14 @@ activity before changing state. Never delete a ledger to work around an
 unresolved order. A `submission_unknown` that the broker cannot resolve also
 requires manual investigation.
 
+Every qualified opportunity rejected after signal validation is written to
+`logs/rejected_trades.csv` and the SQLite `rejected_trades` table. Records include
+contract, quote, spread, DTE, required capital, available virtual capital,
+signal date and a reason such as `UNDERLYING_VALUE_OVER_LIMIT`,
+`MAX_STRATEGY_EXPOSURE_REACHED`, `INSUFFICIENT_LIQUIDITY`, or
+`SPREAD_TOO_WIDE`. Repeated five-minute scans are deduplicated by signal,
+underlying, contract and reason.
+
 ## Analytics and testing
 
 ```bash
@@ -157,12 +180,19 @@ explicitly. Local `--paper-results` does not fetch quotes. The CSV
 `logs/trade_analytics.csv` exports incremental confirmed fills; SQLite is the
 authoritative ledger. These are **option-only** realized/unrealized figures,
 excluding fees, dividends and stock gains/losses, not total covered-call returns.
+`main.py --paper-results` also reports allocated-share cost, realized and
+unrealized stock P/L, combined return on the $25,000 virtual allocation,
+capital employed, assignment/expiration/buy-to-close outcomes, and missing
+marks. The report does not infer assignment from a missing position: Alpaca
+`OPASN`/`OPEXP` activity and, for assignment, its exact matching stock trade are
+required. Alpaca documents `OPASN` as assignment and `OPEXP` as expiration
+activity in its account activity feed.
 
 For historical research, provide one underlying's daily CSV containing
 `date,open,high,low,close` with consistent prices:
 
 ```bash
-python backtester.py --csv data/SPY.csv --starting-cash 100000
+python backtester.py --csv data/SPY.csv --virtual-capital 25000
 ```
 
 The simulator buys 100 shares at the first bar's open, uses yesterday's signal
@@ -172,6 +202,12 @@ drawdown and a 100-share buy-and-hold benchmark, with a modeled spread and
 per-contract fees. Final open calls are marked closed at the last bar's ask.
 Output goes to `logs/covered_call_backtest_trades.csv` and
 `logs/covered_call_equity_curve.csv`.
+
+Use `--virtual-capital 10000`, `25000`, or `50000` to compare allocation
+scenarios. The summary reports qualified signals, executed entries, and signals
+rejected solely by the underlying capital ceiling. `--starting-cash` remains
+available for a separate cash account assumption; by default the simulator uses
+the virtual allocation.
 
 This is a synthetic single-underlying research tool, not historical option-chain
 execution or a reproduction of every runtime filter. It omits market-wide

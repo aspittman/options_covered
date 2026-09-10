@@ -3,8 +3,8 @@ import logging
 from datetime import datetime, timezone
 
 from events import event_block
-from risk import (candidate_score, enum_value, exit_reason, free_contracts, limit_price,
-                  number, parse_option, quote_prices, value)
+from risk import (candidate_score, evaluate_candidate, capital_rejection, enum_value,
+                  exit_reason, free_contracts, limit_price, number, parse_option, quote_prices, value)
 from strategy import signal
 
 LOG = logging.getLogger('options_covered')
@@ -14,9 +14,10 @@ class CoveredCallBot:
     def __init__(self, broker, ledger, settings):
         self.broker, self.ledger, self.settings = broker, ledger, settings
         self.signal_cache = {}
+        self.ledger.bind_capital(settings.virtual_starting_capital)
 
     def note(self, kind, **details):
-        LOG.info('%s %s', kind, details)
+        LOG.info('covered_call %s %s', kind, details)
         self.ledger.event(kind, **details)
 
     def reconcile(self, now):
@@ -40,11 +41,37 @@ class CoveredCallBot:
                 self.note('RECONCILIATION_UNCERTAIN', client_id=row['client_id'], error=str(exc))
         return reliable
 
-    def send(self, symbol, underlying, intent, qty, price, bar_date='', reason=''):
+    def send(self, symbol, underlying, intent, qty, price, bar_date='', reason='', context=None):
+        parsed = parse_option(symbol)
+        if not parsed or parsed['kind'] != 'C' or parsed['underlying'] != underlying:
+            raise ValueError('CoveredCallBot manages only its covered short calls')
+        context = dict(context or {})
+        if intent == 'sell_to_open':
+            rejection, spot = self.entry_guard(symbol, underlying, qty)
+            if rejection:
+                self.reject(underlying, {'date': bar_date}, rejection, symbol=symbol, spot=spot)
+                return False
+            allocation = self.ledger.allocations()[underlying]
+            context.update(capital_employed=allocation['cost_per_share'] * 100,
+                           stock_price=spot, share_cost=allocation['cost_per_share'])
+        elif intent == 'buy_to_close':
+            lot = self.ledger.report()['lots'].get(symbol)
+            positions = {value(p, 'symbol'): p for p in self.broker.positions()}
+            if (not lot or qty <= 0 or qty > lot['qty'] or symbol not in positions
+                    or number(value(positions[symbol], 'qty')) != -lot['qty']):
+                raise ValueError('Cannot close a foreign or mismatched short-call position')
+            if any(value(o, 'symbol') == symbol for o in self.broker.open_orders()):
+                return False
+            try:
+                context['stock_price'] = self.broker.spot(underlying, datetime.now(timezone.utc))
+            except Exception:
+                context['stock_price'] = None  # A missing research mark must not block a risk exit.
+        else:
+            raise ValueError('Invalid covered-call order intent')
         if self.settings.dry_run:
             self.note('DRY_RUN_ORDER', symbol=symbol, intent=intent, qty=qty, price=price, reason=reason)
             return False
-        client_id = self.ledger.prepare(symbol, underlying, intent, qty, price, bar_date, reason)
+        client_id = self.ledger.prepare(symbol, underlying, intent, qty, price, bar_date, reason, context)
         try:
             order = self.broker.submit(client_id, symbol, qty, intent, price)
             self.ledger.update(client_id, order)
@@ -71,12 +98,24 @@ class CoveredCallBot:
             raise RuntimeError('Account lacks covered-call options approval')
 
     def manage(self, now, today):
+        self.reconcile_settlements()
         lots = self.ledger.report()['lots']
         positions = {value(p, 'symbol'): p for p in self.broker.positions()}
         orders = self.broker.open_orders()
         snapshots = self.broker.snapshots(list(lots)) if lots else {}
         reliable = True
         marks = {}
+        stock_marks = {}
+        for underlying, allocation in self.ledger.allocations().items():
+            stock = positions.get(underlying)
+            if not stock or number(value(stock, 'qty')) < allocation['shares']:
+                reliable = False
+                self.note('STOCK_ALLOCATION_MISMATCH', underlying=underlying)
+                continue
+            try:
+                stock_marks[underlying] = self.broker.spot(underlying, now)
+            except Exception as exc:
+                self.note('STOCK_MARK_UNAVAILABLE', underlying=underlying, error=str(exc))
         for symbol, lot in lots.items():
             p = positions.get(symbol)
             # Broker changes can mean assignment, expiry or external trading.
@@ -86,14 +125,14 @@ class CoveredCallBot:
                 self.note('POSITION_MISMATCH', symbol=symbol, tracked_qty=lot['qty'],
                           reason='Inspect broker assignment/expiry/external activity; entries paused')
                 continue
-            if any(value(o, 'symbol') == symbol or value(o, 'legs') for o in orders):
-                continue
-            if any(o['symbol'] == symbol for o in self.ledger.pending()):
-                continue
             try:
                 _, ask = quote_prices(value(snapshots.get(symbol), 'latest_quote'), now,
                                       self.settings.quote_age_seconds)
                 marks[symbol] = ask
+                if any(value(o, 'symbol') == symbol or value(o, 'legs') for o in orders):
+                    continue
+                if any(o['symbol'] == symbol for o in self.ledger.pending()):
+                    continue
                 parsed = parse_option(symbol)
                 if not parsed or parsed['kind'] != 'C':
                     raise ValueError('Tracked contract is not a standard call')
@@ -114,93 +153,184 @@ class CoveredCallBot:
                               limit_price(ask, closing=True), reason=reason)
             except (ValueError, TypeError) as exc:
                 self.note('EXIT_DATA_UNAVAILABLE', symbol=symbol, error=str(exc))
-        self.note('PERFORMANCE', **self.ledger.report(marks))
+        self.note('PERFORMANCE', **self.ledger.research_report(self.settings, marks, stock_marks, record=True))
         return reliable
 
-    def enter(self, underlying, now, today, previous_session):
+    def reconcile_settlements(self):
+        lots = self.ledger.report()['lots']
+        positions = {value(p, 'symbol'): p for p in self.broker.positions()}
+        missing = {s: lot for s, lot in lots.items() if s not in positions}
+        if not missing:
+            return
+        since = min(r['created_at'][:10] for r in self.ledger.orders())
+        if not hasattr(self.broker, 'option_activities'):
+            # Test doubles and alternate brokers may not expose activity history;
+            # absence is uncertainty, never evidence of assignment or profit.
+            self.note('SETTLEMENT_DATA_UNAVAILABLE', since=since)
+            return
+        activities = self.broker.option_activities(since)
+        for symbol, lot in missing.items():
+            events = [a for a in activities if a.get('symbol') == symbol
+                      and a.get('activity_type') in {'OPASN', 'OPEXP'} and a.get('status') == 'executed'
+                      and not self.ledger.db.execute('SELECT 1 FROM settlements WHERE activity_id=?', (a['id'],)).fetchone()]
+            if len(events) != 1:
+                continue
+            event = events[0]
+            parsed = parse_option(symbol)
+            stock_trade = None
+            if event['activity_type'] == 'OPASN':
+                matches = [a for a in activities if a.get('activity_type') == 'OPTRD'
+                           and a.get('symbol') == lot['underlying'] and a.get('date') == event.get('date')
+                           and a.get('status') == 'executed' and number(a.get('qty', 0)) == -lot['qty'] * 100
+                           and number(a.get('price', 0)) == parsed['strike']]
+                # A same-day long-put exercise can produce the same stock sale.
+                # Require a unique option event as well as a unique stock activity.
+                competing = [a for a in activities if a.get('activity_type') in {'OPASN', 'OPEXC'}
+                             and a.get('date') == event.get('date')
+                             and (parse_option(a.get('symbol')) or {}).get('underlying') == lot['underlying']
+                             and (parse_option(a.get('symbol')) or {}).get('strike') == parsed['strike']]
+                if len(matches) != 1 or len(competing) != 1:
+                    continue
+                stock_trade = matches[0]
+            try:
+                if self.ledger.settle(event, stock_trade):
+                    self.note('OPTION_SETTLED', symbol=symbol, activity_id=event['id'], kind=event['activity_type'])
+            except (ValueError, KeyError) as exc:
+                self.note('SETTLEMENT_UNCERTAIN', symbol=symbol, error=str(exc))
+
+    def reject(self, underlying, state, reason, symbol=None, spot=None, snapshot=None, details=''):
+        parsed = parse_option(symbol) or {}
+        quote = value(snapshot, 'latest_quote')
+        def numeric(field):
+            try:
+                return number(value(quote, field))
+            except (ValueError, TypeError):
+                return None
+        bid, ask = numeric('bid_price'), numeric('ask_price')
+        mid = (bid + ask) / 2 if bid is not None and ask is not None else None
+        spread = ask - bid if mid is not None else None
+        capital = self.ledger.capital_state(self.settings)
+        self.ledger.reject(
+            underlying=underlying, contract_symbol=symbol, strike=parsed.get('strike'),
+            expiration=parsed.get('expiration'),
+            DTE=(parsed['expiration'] - datetime.now(timezone.utc).date()).days if parsed else None,
+            underlying_price=spot, bid=bid, ask=ask, mid=mid, spread_dollars=spread,
+            spread_percent=spread / mid * 100 if mid and mid > 0 else None,
+            option_premium=mid * 100 if mid is not None else None,
+            required_capital=spot * 100 if spot is not None else None,
+            virtual_capital_available=capital['virtual_capital_available'],
+            rejection_reason=reason, signal_score=state.get('indicators'),
+            market_regime='sideways', signal_date=state.get('date'), details=details)
+        self.note('TRADE_REJECTED', underlying=underlying, symbol=symbol, reason=reason, details=details)
+
+    def entry_guard(self, symbol, underlying, qty):
+        # Enforced again inside send(), including direct callers. Account equity and
+        # buying power never appear in the strategy's permitted-capital calculation.
         s = self.settings
+        if qty != 1 or qty > s.max_contracts_per_trade:
+            return 'MAX_CONTRACTS_REACHED', None
+        self.account_ok(self.broker.account(), entry=True)
+        now = datetime.now(timezone.utc)
+        spot = self.broker.spot(underlying, now)
+        allocations = self.ledger.allocations()
+        allocation = allocations.get(underlying)
+        cost = allocation['cost_per_share'] if allocation else spot
+        marks = {u: self.broker.spot(u, now) for u in allocations}
+        capital = self.ledger.capital_state(s, marks)
+        prospective = capital['capital_employed'] + (max(spot, cost) * 100 if not allocation else 0)
+        rejection = capital_rejection(spot, cost, prospective, capital['budget'], s)
+        if rejection:
+            return rejection, spot
+        if not allocation or allocation['shares'] < 100:
+            return 'NO_STRATEGY_CONTROLLED_SHARES', spot
+        lots = self.ledger.report()['lots']
+        pending = self.ledger.pending()
+        if any(o['status'] == 'submission_unknown' for o in pending):
+            return 'OTHER', spot
+        # Legacy calls lacking stock allocations may still be closed safely, but
+        # cannot be treated as zero-capital exposure for new entries.
+        if any(lot['underlying'] not in allocations for lot in lots.values()):
+            return 'MAX_STRATEGY_EXPOSURE_REACHED', spot
+        entries = [o for o in pending if o['intent'] == 'sell_to_open']
+        count = sum(lot['qty'] for lot in lots.values()) + sum(o['qty'] - o['filled_qty'] for o in entries)
+        if count >= s.max_contracts:
+            return 'MAX_CONTRACTS_REACHED', spot
+        if any(lot['underlying'] == underlying for lot in lots.values()) or any(o['underlying'] == underlying for o in entries):
+            return 'DUPLICATE_POSITION', spot
+        positions, orders = self.broker.positions(), self.broker.open_orders()
+        # Other puts/calls may coexist. An identical option symbol cannot safely
+        # mix long/short ownership in Alpaca's netted position model.
+        if any(value(p, 'symbol') == symbol for p in positions) or any(value(o, 'symbol') == symbol for o in orders):
+            return 'DUPLICATE_POSITION', spot
+        if free_contracts(underlying, positions, orders) < 1:
+            return 'INSUFFICIENT_COVERAGE', spot
+        return '', spot
+
+    def enter(self, underlying, now, today, previous_session):
         state = self.daily_signal(underlying, now, previous_session)
         if not state['eligible']:
             self.note('SKIP', underlying=underlying, **state)
             return
-        if self.ledger.traded_bar(underlying, state['date']) or self.ledger.cooling_down(underlying, today, s.cooldown_days):
+        try:
+            self.enter_qualified(underlying, state, now, today)
+        except Exception as exc:
+            self.reject(underlying, state, 'OTHER', details=str(exc))
+            raise  # Preserve fail-closed submission/reconciliation behavior.
+
+    def enter_qualified(self, underlying, state, now, today):
+        s = self.settings
+        if self.ledger.traded_bar(underlying, state['date']):
+            self.reject(underlying, state, 'DUPLICATE_POSITION', details='Daily signal already attempted')
             return
-        positions, orders = self.broker.positions(), self.broker.open_orders()
-        if free_contracts(underlying, positions, orders) < 1:
-            self.note('SKIP', underlying=underlying, reason='no_unreserved_100_share_lot')
+        if self.ledger.cooling_down(underlying, today, s.cooldown_days):
+            self.reject(underlying, state, 'OTHER', details='Reentry cooldown')
             return
-        if any((parse_option(value(p, 'symbol')) or {}).get('underlying') == underlying for p in positions):
-            # Separate ownership of identical contracts cannot be proved in a netted account.
-            self.note('SKIP', underlying=underlying, reason='existing_option_exposure')
-            return
-        if any(value(o, 'symbol') == underlying or
-               (parse_option(value(o, 'symbol')) or {}).get('underlying') == underlying for o in orders):
-            return
-        stock = next(p for p in positions if value(p, 'symbol') == underlying)
-        cost_basis = number(value(stock, 'avg_entry_price'))
+        allocation = self.ledger.allocations().get(underlying)
         spot = self.broker.spot(underlying, now)
+        cost_basis = allocation['cost_per_share'] if allocation else spot
         contracts = self.broker.contracts(underlying, spot, today)
         symbols = [c.symbol for c in contracts]
         snapshots = self.broker.snapshots(symbols)
         volumes = self.broker.volumes(symbols, today)
         now = datetime.now(timezone.utc)
-        ranked = []
-        event_blocks = {}
+        ranked, rejected = [], []
         for c in contracts:
             if value(c, 'underlying_symbol') != underlying:
                 continue
             blocked = event_block(s.events_path, underlying, today, c.expiration_date)
+            score, reason = evaluate_candidate(c, snapshots.get(c.symbol), volumes.get(c.symbol, 0),
+                                               spot, cost_basis, today, now, s)
             if blocked:
-                event_blocks[blocked] = event_blocks.get(blocked, 0) + 1
-                continue
-            score = candidate_score(c, snapshots.get(c.symbol), volumes.get(c.symbol, 0),
-                                    spot, cost_basis, today, now, s)
-            if score is not None:
+                rejected.append((c, 'OTHER', blocked))
+            elif score is None:
+                rejected.append((c, reason, 'Contract quality filter'))
+            else:
                 ranked.append((score, c))
         if not ranked:
-            self.note('SKIP', underlying=underlying,
-                      reason='no_contract_passes_liquidity_delta_events_and_strike_filters',
-                      event_blocks=event_blocks)
+            # Candidate-level records are distinct from executed trades. They
+            # retain the reason rather than disguising liquidity failures as budget failures.
+            for c, reason, details in rejected:
+                self.reject(underlying, state, reason, c.symbol, spot, snapshots.get(c.symbol), details)
+            if not rejected:
+                self.reject(underlying, state, 'NO_VALID_CONTRACT', spot=spot)
             return
         _, contract = min(ranked, key=lambda pair: pair[0])
-        # Recheck holdings, pending reservations, latest price and quote at submission.
-        self.account_ok(self.broker.account(), entry=True)
-        positions, orders = self.broker.positions(), self.broker.open_orders()
-        pending = self.ledger.pending()
-        if any(o['status'] == 'submission_unknown' for o in pending):
-            raise RuntimeError('Unresolved submission blocks further entries')
-        if any(value(o, 'symbol') == underlying or
-               (parse_option(value(o, 'symbol')) or {}).get('underlying') == underlying for o in orders):
-            return
-        if any((parse_option(value(p, 'symbol')) or {}).get('underlying') == underlying for p in positions):
-            return
-        lots = self.ledger.report()['lots']
-        pending_entries = [o for o in pending if o['intent'] == 'sell_to_open']
-        count = sum(lot['qty'] for lot in lots.values()) + sum(o['qty'] - o['filled_qty'] for o in pending_entries)
-        if count >= s.max_contracts:
-            return
-        if any(o['underlying'] == underlying for o in pending_entries):
-            return
-        stock = next((p for p in positions if value(p, 'symbol') == underlying), None)
-        if stock is None:
-            return
-        spot = self.broker.spot(underlying, now)
-        reserved_value = 0
-        for symbol in {lot['underlying'] for lot in lots.values()} | {o['underlying'] for o in pending_entries}:
-            qty = sum(lot['qty'] for lot in lots.values() if lot['underlying'] == symbol)
-            qty += sum(o['qty'] - o['filled_qty'] for o in pending_entries if o['underlying'] == symbol)
-            reserved_value += qty * 100 * self.broker.spot(symbol, now)
-        if reserved_value + 100 * spot > s.max_covered_value:
-            return
-        if free_contracts(underlying, positions, orders) < 1:
+        # Selection above is unchanged by capital. Never substitute a cheaper or
+        # inferior contract when the selected trade exceeds the strategy allocation.
+        reason, spot = self.entry_guard(contract.symbol, underlying, 1)
+        if reason:
+            self.reject(underlying, state, reason, contract.symbol, spot, snapshots.get(contract.symbol))
             return
         snapshot = self.broker.snapshots([contract.symbol]).get(contract.symbol)
         now = datetime.now(timezone.utc)
-        if candidate_score(contract, snapshot, volumes.get(contract.symbol, 0), spot,
-                           number(value(stock, 'avg_entry_price')), today, now, s) is None:
+        score, reason = evaluate_candidate(contract, snapshot, volumes.get(contract.symbol, 0),
+                                           spot, cost_basis, today, now, s)
+        if reason:
+            self.reject(underlying, state, reason, contract.symbol, spot, snapshot, 'Final quote recheck')
             return
         bid, ask = quote_prices(value(snapshot, 'latest_quote'), now, s.quote_age_seconds)
-        self.send(contract.symbol, underlying, 'sell_to_open', 1, limit_price((bid + ask) / 2), state['date'])
+        self.send(contract.symbol, underlying, 'sell_to_open', 1,
+                  limit_price((bid + ask) / 2), state['date'])
 
     def cycle(self):
         now = datetime.now(timezone.utc)

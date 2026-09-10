@@ -10,6 +10,7 @@ from alpaca.data.timeframe import TimeFrame
 from alpaca.trading.client import TradingClient
 from alpaca.trading.enums import AssetStatus, ContractType, OrderSide, PositionIntent, QueryOrderStatus, TimeInForce
 from alpaca.trading.requests import GetCalendarRequest, GetOptionContractsRequest, GetOrdersRequest, LimitOrderRequest
+from risk import parse_option
 
 NY = ZoneInfo('America/New_York')
 
@@ -47,10 +48,37 @@ class AlpacaBroker:
         return self.trading.cancel_order_by_id(order_id)
 
     def submit(self, client_id, symbol, qty, intent, price):
+        parsed = parse_option(symbol)
+        if not parsed or parsed['kind'] != 'C' or intent not in {'sell_to_open', 'buy_to_close'}:
+            raise ValueError('CoveredCallBot can only open short calls or buy back its short calls')
+        if qty <= 0 or qty != int(qty) or (intent == 'sell_to_open' and qty != 1):
+            raise ValueError('CoveredCallBot opens exactly one contract per trade')
         return self.trading.submit_order(LimitOrderRequest(
             symbol=symbol, qty=qty, side=OrderSide.SELL if intent == 'sell_to_open' else OrderSide.BUY,
             position_intent=PositionIntent(intent), limit_price=price, time_in_force=TimeInForce.DAY,
             client_order_id=client_id))
+
+    def option_activities(self, since):
+        """SDK has no trading activity wrapper; use its authenticated REST GET.
+
+        Include exercise events too, to detect ambiguous stock-disposition matches
+        with another strategy (for example a long put exercised the same day).
+        """
+        params = {'activity_types': 'OPASN,OPEXP,OPTRD,OPEXC', 'after': since,
+                  'direction': 'asc', 'page_size': 100}
+        result, seen = [], set()
+        while True:
+            page = self.trading.get('/account/activities', data=params)
+            if not isinstance(page, list):
+                raise RuntimeError('Invalid account activity response')
+            result.extend(page)
+            if len(page) < 100:
+                return result
+            token = page[-1]['id']
+            if token in seen:
+                raise RuntimeError('Repeated account activity page')
+            seen.add(token)
+            params['page_token'] = token
 
     def previous_session(self, today):
         sessions = self.trading.get_calendar(GetCalendarRequest(start=today - timedelta(days=14),

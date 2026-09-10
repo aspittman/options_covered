@@ -48,6 +48,12 @@ def history(n=160, trend=False):
 
 
 class RiskTests(unittest.TestCase):
+    def test_research_capital_constants(self):
+        from config import (MAX_CONTRACTS_PER_TRADE, MAX_UNDERLYING_VALUE_PER_POSITION,
+                            VIRTUAL_STARTING_CAPITAL)
+        self.assertEqual((VIRTUAL_STARTING_CAPITAL, MAX_CONTRACTS_PER_TRADE,
+                          MAX_UNDERLYING_VALUE_PER_POSITION), (25000, 1, 25000))
+
     def test_whole_owned_lots_only(self):
         for shares, expected in [(99.99, 0), (100, 1), (250, 2), (-100, 0)]:
             self.assertEqual(free_contracts('SPY', [position(qty=shares)], []), expected)
@@ -168,6 +174,21 @@ class LedgerTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.ledger.bind_account('one', False)
 
+    def test_allocation_and_rejection_are_persistent(self):
+        settings = Settings()
+        self.ledger.allocate_shares('QQQ', 100, 100, 110, settings)
+        state = self.ledger.capital_state(settings, {'QQQ': 110})
+        self.assertEqual(state['capital_employed'], 20500 if 'SPY' in self.ledger.allocations() else 11000)
+        self.ledger.reject(underlying='SPY', contract_symbol=SYMBOL,
+                           rejection_reason='UNDERLYING_VALUE_OVER_LIMIT', signal_date='2026-09-09')
+        self.ledger.export_rejections(self.path.parent / 'rejected.csv')
+        rows = (self.path.parent / 'rejected.csv').read_text().splitlines()
+        self.assertIn('UNDERLYING_VALUE_OVER_LIMIT', rows[-1])
+
+    def test_allocation_rejects_share_value_over_virtual_capital(self):
+        with self.assertRaisesRegex(ValueError, 'UNDERLYING_VALUE_OVER_LIMIT'):
+            self.ledger.allocate_shares('QQQ', 100, 250, 251, Settings())
+
 
 class FakeBroker:
     def __init__(self):
@@ -224,6 +245,7 @@ class BotTests(LedgerTests):
         self.broker = FakeBroker()
         self.settings = Settings(dry_run=False, enable_new_entries=True)
         self.bot = CoveredCallBot(self.broker, self.ledger, self.settings)
+        self.ledger.allocate_shares('SPY', 100, 95, 100, self.settings)
         self.bot.daily_signal = lambda *args: {'eligible': True, 'date': TODAY.isoformat()}
 
     def enter(self):
@@ -394,6 +416,32 @@ class BrokerAdapterTests(unittest.TestCase):
             Obj(option_contracts=[contract()], next_page_token=None)]
         self.assertEqual(len(adapter.contracts('SPY', 100, TODAY)), 2)
         self.assertEqual(adapter.trading.get_option_contracts.call_count, 2)
+
+
+class StartupTests(unittest.TestCase):
+    def test_invalid_expiration_reports_values(self):
+        with self.assertRaisesRegex(ValueError, 'EXIT_DTE=30, MIN_DTE=30, MAX_DTE=45'):
+            Settings(exit_dte=30)
+
+    def test_cli_configuration_error_stops_before_broker_access(self):
+        import main
+        with patch('sys.argv', ['main.py']), \
+                patch('main.Settings.from_env', side_effect=ValueError('Invalid expiration settings')), \
+                patch('main.AlpacaBroker') as broker, patch('sys.stderr'):
+            with self.assertRaises(SystemExit) as result:
+                main.main()
+            self.assertEqual(result.exception.code, 2)
+            broker.assert_not_called()
+
+    def test_launcher_does_not_retry_configuration_errors(self):
+        import launcher
+        with patch('launcher.subprocess.run', return_value=Obj(returncode=2)) as run, \
+                patch('launcher.time.sleep') as sleep, patch('builtins.print'):
+            with self.assertRaises(SystemExit) as result:
+                launcher.main()
+            self.assertEqual(result.exception.code, 2)
+            run.assert_called_once()
+            sleep.assert_not_called()
 
 
 if __name__ == '__main__':

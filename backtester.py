@@ -6,6 +6,7 @@ from pathlib import Path
 from statistics import NormalDist
 
 import pandas as pd
+from dataclasses import replace
 
 from config import Settings
 from risk import exit_reason
@@ -24,7 +25,7 @@ def call_price(spot, strike, dte, volatility, rate=.04):
     return max(0, spot * NORMAL.cdf(d1) - strike * exp(-rate * t) * NORMAL.cdf(d2))
 
 
-def simulate(bars, settings, starting_cash, spread=.10, fee=.65):
+def simulate(bars, settings, starting_cash=None, spread=.10, fee=.65):
     """Buy 100 shares once; write calls at next open after eligible daily signals.
 
     Flat 50% profit and 2x-credit stop rules match runtime. Closing liability is
@@ -32,6 +33,7 @@ def simulate(bars, settings, starting_cash, spread=.10, fee=.65):
     No future information is used to select strikes or estimate volatility.
     """
     bars = bars.sort_index()
+    starting_cash = float(settings.virtual_starting_capital if starting_cash is None else starting_cash)
     if len(bars) < 61 or bars.index.has_duplicates:
         raise ValueError('Need at least 61 unique daily bars')
     for col in ('open', 'high', 'low', 'close'):
@@ -49,6 +51,8 @@ def simulate(bars, settings, starting_cash, spread=.10, fee=.65):
     benchmark_cash = cash
     shares, position, cooldown = 100, None, None
     trades, equity = [], []
+    qualified_signals = 0
+    executed_entries = 0
     for i, (stamp, bar) in enumerate(bars.iterrows()):
         day = stamp.date()
         if (position is None and shares >= 100 and i >= 60 and i < len(bars) - 1
@@ -62,12 +66,16 @@ def simulate(bars, settings, starting_cash, spread=.10, fee=.65):
                                                 - NORMAL.inv_cdf(settings.target_delta) * sigma * sqrt(t))
                 strike = max(strike, stock_basis if settings.above_cost_basis else 0)
                 credit = call_price(bar.open, strike, dte, sigma) * (1 - spread / 2)
+                if strike > bar.open and credit >= settings.min_credit and credit / bar.open >= settings.min_yield:
+                    qualified_signals += 1
                 if (strike > bar.open and credit >= settings.min_credit
                         and credit / bar.open >= settings.min_yield
+                        and bar.open * 100 <= settings.max_underlying_value_per_position
                         and bar.open * 100 <= settings.max_covered_value):
                     position = {'entry_date': day.isoformat(), 'expiration': day + pd.Timedelta(days=dte),
                                 'strike': strike, 'credit': credit, 'sigma': sigma}
                     cash += credit * 100 - fee
+                    executed_entries += 1
         liability = 0
         if position:
             dte = (position['expiration'] - day).days
@@ -100,7 +108,12 @@ def simulate(bars, settings, starting_cash, spread=.10, fee=.65):
                'total_pnl': float(curve.equity.iloc[-1] - starting_cash),
                'buy_hold_pnl': float(curve.buy_hold_equity.iloc[-1] - starting_cash),
                'option_pnl': sum(t['option_pnl'] for t in trades), 'closed_calls': len(trades),
-               'max_drawdown_pct': float(((peak - curve.equity) / peak).max() * 100)}
+               'max_drawdown_pct': float(((peak - curve.equity) / peak).max() * 100),
+               'qualified_signals': qualified_signals,
+               'executed_entries': executed_entries,
+               'capital_rejected_signals': max(0, qualified_signals - executed_entries),
+               'rejected_by_capital': {
+                   'UNDERLYING_VALUE_OVER_LIMIT': max(0, qualified_signals - executed_entries)}}
     return summary, pd.DataFrame(trades), curve
 
 
@@ -108,12 +121,22 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--csv', type=Path, help='One underlying: date,open,high,low,close daily CSV')
     parser.add_argument('--starting-cash', type=float, default=100000)
+    parser.add_argument('--virtual-capital', type=float,
+                        help='Strategy allocation used for covered stock exposure (default: VIRTUAL_STARTING_CAPITAL)')
     parser.add_argument('--spread', type=float, default=.10, help='Synthetic full bid/ask spread fraction')
     parser.add_argument('--fee', type=float, default=.65, help='Modeled fee per contract per side')
     parser.add_argument('--output', type=Path, default=Path('logs'))
     parser.add_argument('--paper-results', action='store_true')
     args = parser.parse_args()
     settings = Settings.from_env()
+    if args.virtual_capital is not None:
+        if args.virtual_capital <= 0:
+            parser.error('--virtual-capital must be positive')
+        settings = replace(settings, virtual_starting_capital=args.virtual_capital,
+                            max_underlying_value_per_position=args.virtual_capital,
+                            max_covered_value=args.virtual_capital)
+    if args.starting_cash == 100000 and args.virtual_capital is not None:
+        args.starting_cash = args.virtual_capital
     if args.paper_results:
         from analytics import Ledger
         print(json.dumps(Ledger(settings.ledger_path).report(), indent=2))

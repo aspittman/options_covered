@@ -7,11 +7,12 @@ from pathlib import Path
 from uuid import uuid4
 
 from risk import enum_value, number, value
+from research import ResearchLedger
 
 TERMINAL = {'filled', 'canceled', 'expired', 'rejected', 'replaced'}
 
 
-class Ledger:
+class Ledger(ResearchLedger):
     def __init__(self, path):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(path)
@@ -30,6 +31,7 @@ class Ledger:
             CREATE TABLE IF NOT EXISTS events (
                 id INTEGER PRIMARY KEY, timestamp TEXT, kind TEXT, details TEXT);
         ''')
+        self.init_research()
 
     def bind_account(self, account_id, paper):
         identity = f'{account_id}:{paper}'
@@ -40,18 +42,20 @@ class Ledger:
             self.db.execute("INSERT OR IGNORE INTO metadata VALUES ('account', ?)", (identity,))
 
     def event(self, kind, **details):
+        details.setdefault('strategy', 'covered_call')
         with self.db:
             self.db.execute('INSERT INTO events(timestamp,kind,details) VALUES (?,?,?)',
                             (datetime.now(timezone.utc).isoformat(), kind, json.dumps(details, default=str)))
 
-    def prepare(self, symbol, underlying, intent, qty, price, signal_date='', reason=''):
-        client_id = 'oc-' + uuid4().hex
+    def prepare(self, symbol, underlying, intent, qty, price, signal_date='', reason='', context=None):
+        client_id = f'covered_call_{underlying}_' + uuid4().hex[:20]
         with self.db:
             self.db.execute('''INSERT INTO orders
                 (client_id,symbol,underlying,intent,qty,limit_price,signal_date,reason,created_at,status)
                 VALUES (?,?,?,?,?,?,?,?,?,?)''',
                 (client_id, symbol, underlying, intent, qty, price, signal_date, reason,
                  datetime.now(timezone.utc).isoformat(), 'submission_unknown'))
+            self.db.execute('INSERT INTO order_context VALUES (?,?)', (client_id, json.dumps(context or {})))
         return client_id
 
     def update(self, client_id, order):

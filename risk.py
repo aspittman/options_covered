@@ -90,34 +90,52 @@ def limit_price(price, closing=False):
     return float((Decimal(str(price)) / tick).to_integral_value(rounding=mode) * tick)
 
 
-def candidate_score(contract, snapshot, volume, spot, cost_basis, today, now, settings):
+def evaluate_candidate(contract, snapshot, volume, spot, cost_basis, today, now, settings):
+    """Original quality rules, with explicit reasons for research rejections."""
     parsed = parse_option(value(contract, 'symbol'))
     if not parsed or parsed['kind'] != 'C':
-        return None
+        return None, 'NO_VALID_CONTRACT'
     if (not value(contract, 'tradable', False) or number(value(contract, 'size', 0)) != 100
             or value(contract, 'underlying_symbol') != parsed['underlying']
             or enum_value(value(contract, 'type')) != 'call'):
-        return None
+        return None, 'NO_VALID_CONTRACT'
     strike = number(value(contract, 'strike_price'))
     dte = (parsed['expiration'] - today).days
     if not settings.min_dte <= dte <= settings.max_dte or strike <= spot:
-        return None
+        return None, 'NO_VALID_CONTRACT'
     if settings.above_cost_basis and (cost_basis <= 0 or strike < cost_basis):
-        return None
+        return None, 'NO_VALID_CONTRACT'
     if number(value(contract, 'open_interest') or 0) < settings.min_open_interest or volume < settings.min_volume:
-        return None
+        return None, 'INSUFFICIENT_LIQUIDITY'
     try:
         bid, ask = quote_prices(value(snapshot, 'latest_quote'), now, settings.quote_age_seconds)
         delta = number(value(value(snapshot, 'greeks'), 'delta'))
     except (ValueError, TypeError):
-        return None
+        return None, 'OTHER'
     mid = (bid + ask) / 2
     credit = limit_price(mid)
-    if (bid <= 0 or (ask - bid) / mid > settings.max_spread
-            or not 0 < delta < 1 or abs(delta - settings.target_delta) > settings.delta_tolerance
+    if bid <= 0:
+        return None, 'INSUFFICIENT_LIQUIDITY'
+    if (ask - bid) / mid > settings.max_spread:
+        return None, 'SPREAD_TOO_WIDE'
+    if (not 0 < delta < 1 or abs(delta - settings.target_delta) > settings.delta_tolerance
             or credit < settings.min_credit or credit / spot < settings.min_yield):
-        return None
-    return (abs(delta - settings.target_delta), (ask - bid) / mid, -volume, abs(dte - 35))
+        return None, 'NO_VALID_CONTRACT'
+    return (abs(delta - settings.target_delta), (ask - bid) / mid, -volume, abs(dte - 35)), ''
+
+
+def candidate_score(contract, snapshot, volume, spot, cost_basis, today, now, settings):
+    return evaluate_candidate(contract, snapshot, volume, spot, cost_basis, today, now, settings)[0]
+
+
+def capital_rejection(spot, share_cost, total_employed, budget, settings):
+    """Same cost/value limits in runtime and backtests; never account equity."""
+    required = max(number(spot), number(share_cost)) * 100
+    if required > settings.max_underlying_value_per_position:
+        return 'UNDERLYING_VALUE_OVER_LIMIT'
+    if total_employed > min(budget, settings.max_covered_value):
+        return 'MAX_STRATEGY_EXPOSURE_REACHED'
+    return ''
 
 
 def exit_reason(entry_credit, ask, dte, settings):

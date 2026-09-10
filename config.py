@@ -17,6 +17,13 @@ def flag(name, default=False):
     return value in {'true', '1', 'yes'}
 
 
+# Named constants make the research allocation auditable and easy for reports
+# and sibling bot implementations to import without reading Alpaca account data.
+VIRTUAL_STARTING_CAPITAL = 25000
+MAX_CONTRACTS_PER_TRADE = 1
+MAX_UNDERLYING_VALUE_PER_POSITION = 25000
+
+
 @dataclass(frozen=True)
 class Settings:
     paper: bool = True
@@ -36,7 +43,12 @@ class Settings:
     min_credit: float = .20
     min_yield: float = .002
     max_contracts: int = 2
-    max_covered_value: float = 100000
+    # Fixed strategy allocation, never derived from shared-account buying power.
+    virtual_starting_capital: float = VIRTUAL_STARTING_CAPITAL
+    max_contracts_per_trade: int = MAX_CONTRACTS_PER_TRADE
+    max_underlying_value_per_position: float = MAX_UNDERLYING_VALUE_PER_POSITION
+    # Aggregate covered stock exposure cannot exceed this strategy's virtual allocation.
+    max_covered_value: float = 25000
     above_cost_basis: bool = True
     take_profit: float = .50
     stop_multiple: float = 2.0
@@ -59,8 +71,18 @@ class Settings:
             item = getattr(self, name)
             if isinstance(item, (float, int)) and not isfinite(item):
                 raise ValueError(f'{name} must be finite')
+        if self.max_contracts_per_trade != 1:
+            raise ValueError('MAX_CONTRACTS_PER_TRADE must remain 1 for this research strategy')
+        if self.virtual_starting_capital <= 0 or self.max_underlying_value_per_position <= 0:
+            raise ValueError('Virtual capital and underlying position limit must be positive')
         if not 0 <= self.exit_dte < self.min_dte <= self.max_dte:
-            raise ValueError('Require 0 <= EXIT_DTE < MIN_DTE <= MAX_DTE')
+            raise ValueError(
+                f'Invalid expiration settings: EXIT_DTE={self.exit_dte}, '
+                f'MIN_DTE={self.min_dte}, MAX_DTE={self.max_dte}. '
+                'Require 0 <= EXIT_DTE < MIN_DTE <= MAX_DTE. '
+                'Covered-call defaults are EXIT_DTE=7, MIN_DTE=30, MAX_DTE=45. '
+                'Check .env and exported environment variables (exports take precedence).'
+            )
         for name in ('max_contracts', 'max_covered_value',
                      'quote_age_seconds', 'interval', 'entry_timeout_minutes',
                      'exit_timeout_minutes', 'min_credit', 'max_adx'):

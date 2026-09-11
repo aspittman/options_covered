@@ -37,13 +37,23 @@ persisted across restarts. Unlike the reference's fresh trend-cross requirement,
 an ongoing sideways regime can produce another call after the prior one closes
 and the five **calendar-day** cooldown expires.
 
-The default watchlist is SPY, QQQ, IWM and DIA. Set `UNDERLYINGS` to the shares
-you own and want to write calls against. This bot has a separate
+The default watchlist is a broader liquid universe of index and sector ETFs plus
+large and mid-cap stocks, including lower-notional names such as XLF, XLE, XBI,
+EEM, INTC, F, T, PFE, SOFI, SNAP, and OXY. Set `UNDERLYINGS` in `.env` to the
+shares you own and want to write calls against; that override replaces the
+default universe. This bot has a separate
 `VIRTUAL_STARTING_CAPITAL=25000` allocation. It opens at most
 `MAX_CONTRACTS_PER_TRADE=1`, and each 100-share lot must be worth no more than
 `MAX_UNDERLYING_VALUE_PER_POSITION=25000`. Aggregate covered exposure is capped
 at `MAX_COVERED_VALUE=25000`; neither limit uses the shared Alpaca account's
 buying power.
+
+When the selected, otherwise-qualified call has an estimated one-contract
+midpoint premium of $500 or less, the terminal prints a green `LOW-PREMIUM
+COVERED CALL <= $500` marker with the contract and quote. This is a visibility
+marker only: it does not alter contract ranking or replace the preferred call
+with a cheaper strike. The bot continues to choose the best delta, DTE, and
+liquidity candidate first.
 
 Because four strategies share one Alpaca account, explicitly assign the exact
 100-share lot this bot controls. This records a virtual allocation and places no

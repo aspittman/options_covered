@@ -9,6 +9,21 @@ from strategy import signal
 
 LOG = logging.getLogger('options_covered')
 ALLOWED_COVERED_CALL_INTENTS = frozenset(('sell_to_open', 'buy_to_close'))
+LOW_PREMIUM_LIMIT = 500.0
+
+
+def highlight_low_premium(symbol, underlying, mid, bid, ask):
+    """Print a visible terminal marker without adding ANSI escapes to file logs."""
+    premium = mid * 100
+    if premium > LOW_PREMIUM_LIMIT:
+        return False
+    print(
+        f'\033[1;32m★ LOW-PREMIUM COVERED CALL <= $500: '
+        f'{symbol} ({underlying}) mid=${mid:.2f}, bid=${bid:.2f}, ask=${ask:.2f}, '
+        f'estimated premium=${premium:.2f}\033[0m',
+        flush=True,
+    )
+    return True
 
 
 class CoveredCallBot:
@@ -26,8 +41,19 @@ class CoveredCallBot:
         for row in self.ledger.pending():
             try:
                 order = self.broker.order(row)
+                previous_filled = row['filled_qty']
                 self.ledger.update(row['client_id'], order)
                 status = enum_value(value(order, 'status'))
+                filled = number(value(order, 'filled_qty') or 0)
+                fill_price = value(order, 'filled_avg_price')
+                if (row['intent'] == 'sell_to_open' and filled > previous_filled
+                        and fill_price is not None and number(fill_price) * 100 <= LOW_PREMIUM_LIMIT):
+                    print(
+                        f'\033[1;32m★ LOW-PREMIUM COVERED CALL FILLED <= $500: '
+                        f"{row['symbol']} ({row['underlying']}) fill=${number(fill_price):.2f}, "
+                        f'estimated premium=${number(fill_price) * 100:.2f}\033[0m',
+                        flush=True,
+                    )
                 from analytics import TERMINAL
                 if status not in TERMINAL:
                     age = (now - datetime.fromisoformat(row['created_at'])).total_seconds() / 60
@@ -332,8 +358,10 @@ class CoveredCallBot:
             self.reject(underlying, state, reason, contract.symbol, spot, snapshot, 'Final quote recheck')
             return
         bid, ask = quote_prices(value(snapshot, 'latest_quote'), now, s.quote_age_seconds)
+        mid = (bid + ask) / 2
+        highlight_low_premium(contract.symbol, underlying, mid, bid, ask)
         self.send(contract.symbol, underlying, 'sell_to_open', 1,
-                  limit_price((bid + ask) / 2), state['date'])
+                  limit_price(mid), state['date'])
 
     def cycle(self):
         now = datetime.now(timezone.utc)

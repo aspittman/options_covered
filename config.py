@@ -29,7 +29,17 @@ class Settings:
     paper: bool = True
     dry_run: bool = True
     enable_new_entries: bool = False
-    underlyings: tuple = ('SPY', 'QQQ', 'IWM', 'DIA')
+    # Broad, liquid universe with many lower-notional underlyings. The existing
+    # signal, quote, liquidity, coverage, and risk filters still decide what can
+    # trade; adding symbols does not force a trade or select cheap strikes.
+    underlyings: tuple = (
+        'SPY', 'QQQ', 'IWM', 'DIA', 'XLF', 'XLE', 'XLV', 'XLI', 'XLP', 'XLU',
+        'XLB', 'KRE', 'XBI', 'ARKK', 'EEM', 'EFA', 'VNQ', 'GDX', 'GLD', 'SLV',
+        'TLT', 'HYG', 'LQD', 'USO', 'XOP', 'TAN', 'IGV', 'AAPL', 'AMD', 'INTC',
+        'BAC', 'F', 'T', 'PFE', 'CSCO', 'MU', 'SOFI', 'SNAP', 'NCLH', 'UBER',
+        'PINS', 'RIVN', 'HOOD', 'ROKU', 'PYPL', 'WMT', 'KO', 'GM', 'XOM',
+        'CVX', 'OXY',
+    )
     market_symbol: str = 'SPY'
     market_filter: bool = True
     min_dte: int = 30

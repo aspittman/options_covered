@@ -54,6 +54,12 @@ class RiskTests(unittest.TestCase):
         self.assertEqual((VIRTUAL_STARTING_CAPITAL, MAX_CONTRACTS_PER_TRADE,
                           MAX_UNDERLYING_VALUE_PER_POSITION), (25000, 1, 25000))
 
+    def test_expanded_universe_contains_lower_notional_candidates(self):
+        from config import Settings
+        universe = Settings().underlyings
+        for symbol in ('XLF', 'XLE', 'XBI', 'INTC', 'F', 'SOFI', 'OXY'):
+            self.assertIn(symbol, universe)
+
     def test_whole_owned_lots_only(self):
         for shares, expected in [(99.99, 0), (100, 1), (250, 2), (-100, 0)]:
             self.assertEqual(free_contracts('SPY', [position(qty=shares)], []), expected)
@@ -393,6 +399,17 @@ class BrokerAdapterTests(unittest.TestCase):
                                ('SPY', 'sell_to_open')):
             with self.assertRaises(ValueError):
                 adapter.submit('covered_call_test', symbol, 1, intent, 1)
+
+    def test_low_premium_terminal_marker(self):
+        from io import StringIO
+        from unittest.mock import patch
+        from options_trader import highlight_low_premium
+        with patch('sys.stdout', new_callable=StringIO) as stdout:
+            self.assertTrue(highlight_low_premium(SYMBOL, 'SPY', 4.99, 4.9, 5.08))
+        self.assertIn('LOW-PREMIUM COVERED CALL <= $500', stdout.getvalue())
+        with patch('sys.stdout', new_callable=StringIO) as stdout:
+            self.assertFalse(highlight_low_premium(SYMBOL, 'SPY', 5.01, 5, 5.02))
+        self.assertEqual(stdout.getvalue(), '')
 
     def test_sdk_serializes_open_and_close_intents(self):
         from unittest.mock import Mock

@@ -19,6 +19,10 @@ ALLOWED_COVERED_CALL_INTENTS = frozenset({'sell_to_open', 'buy_to_close'})
 LOG = logging.getLogger('options_covered')
 
 
+class MarketDataUnavailable(ValueError):
+    """A symbol cannot be evaluated safely from the current broker data."""
+
+
 class AlpacaBroker:
     def __init__(self, key, secret, settings):
         self.settings = settings
@@ -119,9 +123,9 @@ class AlpacaBroker:
     def spot(self, symbol, now):
         trade = self.stocks.get_stock_latest_trade(StockLatestTradeRequest(symbol_or_symbols=symbol, feed=DataFeed.IEX))[symbol]
         if not -5 <= (now - trade.timestamp).total_seconds() <= self.settings.quote_age_seconds:
-            raise ValueError('Stale underlying trade')
+            raise MarketDataUnavailable('Stale underlying trade')
         if not 0 < float(trade.price) < float('inf'):
-            raise ValueError('Invalid underlying price')
+            raise MarketDataUnavailable('Invalid underlying price')
         return float(trade.price)
 
     def contracts(self, symbol, spot, today):

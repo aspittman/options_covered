@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timezone
 
 from events import event_block
+from broker import MarketDataUnavailable
 from risk import (candidate_score, evaluate_candidate, capital_rejection, enum_value,
                   exit_reason, free_contracts, limit_price, number, parse_option, quote_prices, value)
 from strategy import signal
@@ -302,6 +303,11 @@ class CoveredCallBot:
             return
         try:
             self.enter_qualified(underlying, state, now, today)
+        except MarketDataUnavailable as exc:
+            # A stale quote is symbol-scoped market-data unavailability. Skip
+            # only this candidate and let the rest of the universe run.
+            self.reject(underlying, state, 'OTHER', details=str(exc))
+            self.note('SKIP', underlying=underlying, reason='STALE_OR_INVALID_UNDERLYING_DATA', details=str(exc))
         except Exception as exc:
             self.reject(underlying, state, 'OTHER', details=str(exc))
             raise  # Preserve fail-closed submission/reconciliation behavior.

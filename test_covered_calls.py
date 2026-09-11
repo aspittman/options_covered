@@ -389,6 +389,17 @@ class StrategyAndBacktestTests(unittest.TestCase):
 
 
 class BrokerAdapterTests(unittest.TestCase):
+    def test_stale_underlying_data_is_a_symbol_scoped_condition(self):
+        from broker import AlpacaBroker, MarketDataUnavailable
+        from unittest.mock import Mock
+        adapter = AlpacaBroker.__new__(AlpacaBroker)
+        adapter.settings = Settings(quote_age_seconds=120)
+        adapter.stocks = Mock()
+        adapter.stocks.get_stock_latest_trade.return_value = {
+            'SPY': Obj(price=100, timestamp=NOW - timedelta(minutes=5))}
+        with self.assertRaises(MarketDataUnavailable):
+            adapter.spot('SPY', NOW)
+
     def test_only_covered_call_order_types_are_allowed(self):
         from unittest.mock import Mock
         from broker import AlpacaBroker

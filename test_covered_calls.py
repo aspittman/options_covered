@@ -416,6 +416,31 @@ class BrokerAdapterTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             adapter.open_orders()
 
+    def test_clock_retries_transient_alpaca_failure(self):
+        from unittest.mock import Mock, patch
+        from broker import AlpacaBroker
+        adapter = AlpacaBroker.__new__(AlpacaBroker)
+        adapter.trading = Mock()
+        adapter.trading.get_clock.side_effect = [RuntimeError('500 Internal Server Error'),
+                                                 RuntimeError('500 Internal Server Error'),
+                                                 Obj(is_open=True)]
+        with patch('broker.time.sleep') as sleep:
+            self.assertTrue(adapter.clock().is_open)
+        self.assertEqual(adapter.trading.get_clock.call_count, 3)
+        self.assertEqual(sleep.call_args_list[0].args, (2,))
+        self.assertEqual(sleep.call_args_list[1].args, (5,))
+
+    def test_clock_raises_after_bounded_retries(self):
+        from unittest.mock import Mock, patch
+        from broker import AlpacaBroker
+        adapter = AlpacaBroker.__new__(AlpacaBroker)
+        adapter.trading = Mock()
+        adapter.trading.get_clock.side_effect = RuntimeError('500 Internal Server Error')
+        with patch('broker.time.sleep'):
+            with self.assertRaisesRegex(RuntimeError, '500'):
+                adapter.clock()
+        self.assertEqual(adapter.trading.get_clock.call_count, 3)
+
     def test_contract_pagination(self):
         from unittest.mock import Mock
         from broker import AlpacaBroker

@@ -1,5 +1,7 @@
 """Alpaca adapter. Constructed only by the CLI, never at import time."""
 from datetime import datetime, timedelta
+import logging
+import time
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -14,6 +16,7 @@ from risk import parse_option
 
 NY = ZoneInfo('America/New_York')
 ALLOWED_COVERED_CALL_INTENTS = frozenset({'sell_to_open', 'buy_to_close'})
+LOG = logging.getLogger('options_covered')
 
 
 class AlpacaBroker:
@@ -28,7 +31,22 @@ class AlpacaBroker:
         return self.trading.get_account()
 
     def clock(self):
-        return self.trading.get_clock()
+        """Read the clock with bounded retry for transient Alpaca 5xx responses.
+
+        A failed clock read is never treated as open or closed. After retries,
+        the caller pauses the cycle and tries again on the normal interval.
+        """
+        delays = (2, 5, 10)
+        for attempt, delay in enumerate(delays, start=1):
+            try:
+                return self.trading.get_clock()
+            except Exception as exc:
+                if attempt == len(delays):
+                    LOG.warning('Alpaca clock unavailable after %d attempts: %s', attempt, exc)
+                    raise
+                LOG.warning('Alpaca clock attempt %d/%d failed: %s; retrying in %ss',
+                            attempt, len(delays), exc, delay)
+                time.sleep(delay)
 
     def positions(self):
         return self.trading.get_all_positions()

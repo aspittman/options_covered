@@ -8,6 +8,7 @@ from risk import (candidate_score, evaluate_candidate, capital_rejection, enum_v
 from strategy import signal
 
 LOG = logging.getLogger('options_covered')
+ALLOWED_COVERED_CALL_INTENTS = frozenset(('sell_to_open', 'buy_to_close'))
 
 
 class CoveredCallBot:
@@ -44,7 +45,9 @@ class CoveredCallBot:
     def send(self, symbol, underlying, intent, qty, price, bar_date='', reason='', context=None):
         parsed = parse_option(symbol)
         if not parsed or parsed['kind'] != 'C' or parsed['underlying'] != underlying:
-            raise ValueError('CoveredCallBot manages only its covered short calls')
+            raise ValueError('CoveredCallBot can buy or sell covered calls only; puts and stock orders are forbidden')
+        if intent not in ALLOWED_COVERED_CALL_INTENTS:
+            raise ValueError('CoveredCallBot permits only sell_to_open and buy_to_close intents')
         context = dict(context or {})
         if intent == 'sell_to_open':
             rejection, spot = self.entry_guard(symbol, underlying, qty)

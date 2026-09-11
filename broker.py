@@ -13,6 +13,7 @@ from alpaca.trading.requests import GetCalendarRequest, GetOptionContractsReques
 from risk import parse_option
 
 NY = ZoneInfo('America/New_York')
+ALLOWED_COVERED_CALL_INTENTS = frozenset({'sell_to_open', 'buy_to_close'})
 
 
 class AlpacaBroker:
@@ -49,8 +50,10 @@ class AlpacaBroker:
 
     def submit(self, client_id, symbol, qty, intent, price):
         parsed = parse_option(symbol)
-        if not parsed or parsed['kind'] != 'C' or intent not in {'sell_to_open', 'buy_to_close'}:
-            raise ValueError('CoveredCallBot can only open short calls or buy back its short calls')
+        if not parsed or parsed['kind'] != 'C':
+            raise ValueError('CoveredCallBot can submit call options only; puts and stock orders are forbidden')
+        if intent not in ALLOWED_COVERED_CALL_INTENTS:
+            raise ValueError('CoveredCallBot permits only sell_to_open and buy_to_close intents')
         if qty <= 0 or qty != int(qty) or (intent == 'sell_to_open' and qty != 1):
             raise ValueError('CoveredCallBot opens exactly one contract per trade')
         return self.trading.submit_order(LimitOrderRequest(

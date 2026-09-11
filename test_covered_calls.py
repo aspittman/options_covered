@@ -383,6 +383,17 @@ class StrategyAndBacktestTests(unittest.TestCase):
 
 
 class BrokerAdapterTests(unittest.TestCase):
+    def test_only_covered_call_order_types_are_allowed(self):
+        from unittest.mock import Mock
+        from broker import AlpacaBroker
+        adapter = AlpacaBroker.__new__(AlpacaBroker)
+        adapter.trading = Mock()
+        put_symbol = SYMBOL.replace('C', 'P', 1)
+        for symbol, intent in ((put_symbol, 'sell_to_open'), (SYMBOL, 'buy_to_open'),
+                               ('SPY', 'sell_to_open')):
+            with self.assertRaises(ValueError):
+                adapter.submit('covered_call_test', symbol, 1, intent, 1)
+
     def test_sdk_serializes_open_and_close_intents(self):
         from unittest.mock import Mock
         from broker import AlpacaBroker

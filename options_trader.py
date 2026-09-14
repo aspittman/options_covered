@@ -7,6 +7,7 @@ from broker import MarketDataUnavailable
 from risk import (candidate_score, evaluate_candidate, capital_rejection, enum_value,
                   exit_reason, free_contracts, limit_price, number, parse_option, quote_prices, value)
 from strategy import signal
+from oasis import refresh_oasis_data, get_oasis_signal_state, entry_window, session_exit, short_option_exit
 
 LOG = logging.getLogger('options_covered')
 ALLOWED_COVERED_CALL_INTENTS = frozenset(('sell_to_open', 'buy_to_close'))
@@ -77,6 +78,8 @@ class CoveredCallBot:
             raise ValueError('CoveredCallBot permits only sell_to_open and buy_to_close intents')
         context = dict(context or {})
         if intent == 'sell_to_open':
+            if context.get('variant') == 'oasis' and not entry_window(self.broker.clock()):
+                return False
             rejection, spot = self.entry_guard(symbol, underlying, qty)
             if rejection:
                 self.reject(underlying, {'date': bar_date}, rejection, symbol=symbol, spot=spot)
@@ -167,7 +170,16 @@ class CoveredCallBot:
                 if not parsed or parsed['kind'] != 'C':
                     raise ValueError('Tracked contract is not a standard call')
                 dte = (parsed['expiration'] - today).days
-                reason = exit_reason(lot['credit'] / lot['qty'], ask, dte, self.settings)
+                if lot.get('variant') == 'oasis':
+                    reason = session_exit(self.broker.clock(), lot.get('opened_at', '')) or short_option_exit(
+                        lot['credit']/lot['qty'], ask, dte, self.settings.exit_dte, lot['underlying'])
+                else:
+                    reason = exit_reason(lot['credit'] / lot['qty'], ask, dte, self.settings)
+                if lot.get('variant') == 'oasis' and not reason and self.settings.option_trailing_stop_percent > 0:
+                    stop = self.ledger.option_trailing_stop(
+                        symbol, lot['credit']/lot['qty'], ask, self.settings.option_trailing_stop_percent)
+                    if ask >= stop:
+                        reason = 'option_trailing_stop'
                 # Lost collateral is urgent; buy back the call, never sell its stock.
                 stock = positions.get(lot['underlying'])
                 shares = max(0, number(value(stock, 'qty', 0)))
@@ -257,6 +269,10 @@ class CoveredCallBot:
         # Enforced again inside send(), including direct callers. Account equity and
         # buying power never appear in the strategy's permitted-capital calculation.
         s = self.settings
+        if self.ledger.loss_blocked(underlying):
+            return 'SHARED_LOSS_REENTRY_BLOCK', None
+        if any(r['underlying'] == underlying and r['intent'] == 'buy_to_close' for r in self.ledger.pending()):
+            return 'UNDERLYING_EXIT_PENDING', None
         if qty != 1 or qty > s.max_contracts_per_trade:
             return 'MAX_CONTRACTS_REACHED', None
         self.account_ok(self.broker.account(), entry=True)
@@ -317,7 +333,10 @@ class CoveredCallBot:
         if self.ledger.traded_bar(underlying, state['date']):
             self.reject(underlying, state, 'DUPLICATE_POSITION', details='Daily signal already attempted')
             return
-        if self.ledger.cooling_down(underlying, today, s.cooldown_days):
+        if self.ledger.loss_blocked(underlying, today):
+            self.reject(underlying, state, 'SHARED_LOSS_REENTRY_BLOCK')
+            return
+        if state.get('variant') != 'oasis' and self.ledger.cooling_down(underlying, today, s.cooldown_days):
             self.reject(underlying, state, 'OTHER', details='Reentry cooldown')
             return
         allocation = self.ledger.allocations().get(underlying)
@@ -367,7 +386,28 @@ class CoveredCallBot:
         mid = (bid + ask) / 2
         highlight_low_premium(contract.symbol, underlying, mid, bid, ask)
         self.send(contract.symbol, underlying, 'sell_to_open', 1,
-                  limit_price(mid), state['date'])
+                  limit_price(mid), state['date'], context={'variant': state.get('variant', 'regular')})
+
+    def cancel_blocked_entries(self, clock):
+        reliable = True
+        for row in self.ledger.pending():
+            if row['intent'] != 'sell_to_open':
+                continue
+            variant = self.ledger.context(row['client_id']).get('variant', 'regular')
+            if not (self.ledger.loss_blocked(row['underlying']) or variant == 'oasis' and not entry_window(clock)):
+                continue
+            try:
+                order = self.broker.order(row)
+                # update validates client ID, symbol and side before any cancellation.
+                self.ledger.update(row['client_id'], order)
+                from analytics import TERMINAL
+                if enum_value(value(order, 'status')) not in TERMINAL and not self.settings.dry_run:
+                    self.broker.cancel(str(value(order, 'id')))
+                    self.note('CANCEL_REQUESTED', client_id=row['client_id'], reason='loss_block_or_oasis_cutoff')
+            except Exception as exc:
+                reliable = False
+                self.note('RECONCILIATION_UNCERTAIN', error=str(exc))
+        return reliable
 
     def cycle(self):
         now = datetime.now(timezone.utc)
@@ -381,11 +421,14 @@ class CoveredCallBot:
             self.note('MARKET_CLOSED')
             return
         self.account_ok(account)
+        cancellations_ok = self.cancel_blocked_entries(clock)
+        if hasattr(self.broker, 'stocks') and hasattr(self.broker, 'trading'):
+            refresh_oasis_data(self.settings.underlyings, self.broker.stocks, self.broker.trading, now)
         from broker import NY
         today = now.astimezone(NY).date()
         if not self.manage(now, today):
             return
-        if not self.settings.enable_new_entries:
+        if not self.settings.enable_new_entries or not cancellations_ok:
             self.note('ENTRIES_DISABLED')
             return
         self.account_ok(account, entry=True)
@@ -397,4 +440,13 @@ class CoveredCallBot:
                 return
         for underlying in self.settings.underlyings:
             self.enter(underlying, now, today, previous_session)
+            if entry_window(self.broker.clock()):
+                state = get_oasis_signal_state(underlying)
+                if state['new_signal']:
+                    try:
+                        self.enter_qualified(underlying, {
+                            'eligible': True, 'date': state['signal_date'], 'variant': 'oasis',
+                            'reason': 'intraday_ema_momentum'}, now, today)
+                    except MarketDataUnavailable as exc:
+                        self.note('OASIS_DATA_UNAVAILABLE', underlying=underlying, error=str(exc))
         self.note('CYCLE_COMPLETE')

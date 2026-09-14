@@ -1,3 +1,87 @@
+## Trailing stops
+
+Option-premium trailing stops are enabled for **oasis only** with
+`OPTION_TRAILING_STOP_PERCENT=0.20`:
+
+- Bought calls/puts (direct and inverted): sell when the observed option premium
+  falls 20% below its highest observed premium for the current holding.
+- Sold covered calls/cash-secured puts: buy back when the ask rebounds 20% above
+  its lowest observed buyback price for the current holding.
+
+Regular retains its previous controls: direct/inverted use their existing 30%
+fixed option stops and 3% underlying trails; covered/secured keep their 2x-credit
+fixed stops without an option-premium trail. Oasis alone uses the 20% fixed stop
+and 20% premium trail. The trail starts from its entry premium.
+Long-option highs are rebuilt from confirmed fills and durable premium snapshots;
+short-option lows are persisted in a small ledger table keyed to the entry order.
+The trail never loosens as prices reverse, survives restarts, and resets for a new
+trade. Existing fixed stops, regular underlying-price trails, technical exits,
+Oasis closing times, collateral controls, and the shared loss block remain active.
+Stops are monitored limit-order exits and do not guarantee execution at the trigger.
+An existing short option starts from its entry credit/current ask because earlier
+unrecorded intraday lows cannot be reconstructed.
+
+# Regular and Oasis runtime update
+
+Active variants: **regular** (the original sideways covered-call rules) and
+**oasis**, which sells covered calls on **bearish** EMA/momentum signals. Its stop
+buys back the call when the ask reaches **120% of the entry credit**, a loss of
+20% of that credit. This is an option-leg stop, not a 20% stop on the stock lot.
+The allocated shares remain owned when Oasis buys back its call; this bot never
+submits stock sales or naked calls. Existing stock coverage, allocation, settlement
+and account checks remain required. Entry variant metadata is stored in existing
+order context; old entries default to regular. Reports include option P/L by variant.
+Confirmed losing stock dispositions already in this ledger also start the block.
+
+The regular variant keeps the existing daily entry and exit rules. Oasis uses
+completed regular-session 5-minute candles: a 9/21 EMA cloud, both EMAs moving in
+the trade direction, RSI(14), and a strengthening MACD(12/26/9) histogram. Bullish
+entries require RSI between 50 and 70; bearish entries require RSI between 30 and
+50. Only a fresh false-to-true setup can enter. Stale, incomplete and prior-session
+bars cannot trigger entries. The existing daily market filter and contract-quality,
+earnings, ownership and capital limits still apply.
+
+Oasis stops opening entries 30 minutes before Alpaca's reported stock-session close
+and starts closing its options 15 minutes before close, including shortened
+sessions. Pending entries are canceled at the cutoff; cancellation remains pending
+until confirmed by the broker. Any overnight remainder is closed on the next open
+cycle. Momentum/cloud breakdown can exit earlier. Risk/order checks run every
+60 seconds plus processing time. The original expiration windows are retained.
+These are monitored limit-order exits, not guaranteed fills or maximum losses.
+Delayed indicative option quotes limit intraday paper-execution realism.
+
+A confirmed loss blocks all new contracts on that underlying through 30 calendar
+days after the loss; reentry is permitted on day 31. The check applies across
+regular, oasis and historical variants, survives restarts, and is enforced at the
+final entry gate. Winning exits do not start/reset the loss block. Regular keeps
+its existing ordinary reentry cooldown; oasis uses only the loss block and signal
+bar deduplication. Pending closing orders must reconcile before reentry.
+
+By default the block is also shared across all four sibling bots via read-only
+checks of these ledgers:
+
+- `options_direct/logs/trade_analytics.csv`
+- `options_inverted/logs/trade_analytics.csv`
+- `options_covered/logs/trades.sqlite3`
+- `options_secured/logs/options_secured.sqlite3`
+
+Set `LOSS_GUARD_SCOPE=bot` for checks only within each bot. For custom ledger
+locations, set `LOSS_LEDGER_PATHS` to a JSON object mapping bot directory names to
+absolute paths. Missing default ledgers are ignored; existing unreadable ledgers
+block entries until readable. This conservatively combines the configured ledgers
+without inferring whether they belong to the same taxpayer/account. Use ledgers
+from the intended trading environment. No external/manual accounts are inspected.
+This is not wash-sale tax accounting: it does not resolve substantially-identical
+instruments, the pre-loss purchase window, or unrecorded transactions.
+
+Historical daily backtests remain historical research, not Oasis simulations, and
+do not simulate the new shared loss block. Existing trade records are preserved.
+The changes load on the next restart; installation does not start or restart bots.
+
+---
+
+Existing setup and historical research reference:
+
 # OptionsCovered
 
 An Alpaca covered-call bot adapted from the architecture of

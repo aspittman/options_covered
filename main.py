@@ -69,7 +69,7 @@ def main():
                 ledger.export_rejections(settings.ledger_path.parent / 'rejected_trades.csv')
             if args.once:
                 return
-            time.sleep(settings.interval)
+            time.sleep(min(settings.interval, 60))
 
 
 if __name__ == '__main__':

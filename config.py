@@ -62,6 +62,7 @@ class Settings:
     above_cost_basis: bool = True
     take_profit: float = .50
     stop_multiple: float = 2.0
+    option_trailing_stop_percent: float = .20  # Oasis only; regular retains its credit stop.
     max_adx: float = 20
     max_ma_slope: float = .015
     max_ma_distance: float = .04
@@ -71,12 +72,14 @@ class Settings:
     entry_timeout_minutes: int = 15
     exit_timeout_minutes: int = 2
     cooldown_days: int = 5
-    interval: int = 300
+    interval: int = 60
     option_feed: str = 'indicative'
     ledger_path: Path = ROOT / 'logs/trades.sqlite3'
     events_path: Path = ROOT / 'events.json'
 
     def __post_init__(self):
+        if not 0 <= self.option_trailing_stop_percent < 1:
+            raise ValueError('OPTION_TRAILING_STOP_PERCENT must be at least zero and less than one')
         for name in self.__dataclass_fields__:
             item = getattr(self, name)
             if isinstance(item, (float, int)) and not isfinite(item):

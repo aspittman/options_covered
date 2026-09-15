@@ -1,324 +1,343 @@
-## Trailing stops
-
-Option-premium trailing stops are enabled for **oasis only** with
-`OPTION_TRAILING_STOP_PERCENT=0.20`:
-
-- Bought calls/puts (direct and inverted): sell when the observed option premium
-  falls 20% below its highest observed premium for the current holding.
-- Sold covered calls/cash-secured puts: buy back when the ask rebounds 20% above
-  its lowest observed buyback price for the current holding.
-
-Regular retains its previous controls: direct/inverted use their existing 30%
-fixed option stops and 3% underlying trails; covered/secured keep their 2x-credit
-fixed stops without an option-premium trail. Oasis alone uses the 20% fixed stop
-and 20% premium trail. The trail starts from its entry premium.
-Long-option highs are rebuilt from confirmed fills and durable premium snapshots;
-short-option lows are persisted in a small ledger table keyed to the entry order.
-The trail never loosens as prices reverse, survives restarts, and resets for a new
-trade. Existing fixed stops, regular underlying-price trails, technical exits,
-Oasis closing times, collateral controls, and the shared loss block remain active.
-Stops are monitored limit-order exits and do not guarantee execution at the trigger.
-An existing short option starts from its entry credit/current ask because earlier
-unrecorded intraday lows cannot be reconstructed.
-
-# Regular and Oasis runtime update
-
-Active variants: **regular** (the original sideways covered-call rules) and
-**oasis**, which sells covered calls on **bearish** EMA/momentum signals. Its stop
-buys back the call when the ask reaches **120% of the entry credit**, a loss of
-20% of that credit. This is an option-leg stop, not a 20% stop on the stock lot.
-The allocated shares remain owned when Oasis buys back its call; this bot never
-submits stock sales or naked calls. Existing stock coverage, allocation, settlement
-and account checks remain required. Entry variant metadata is stored in existing
-order context; old entries default to regular. Reports include option P/L by variant.
-Confirmed losing stock dispositions already in this ledger also start the block.
-
-The regular variant keeps the existing daily entry and exit rules. Oasis uses
-completed regular-session 5-minute candles: a 9/21 EMA cloud, both EMAs moving in
-the trade direction, RSI(14), and a strengthening MACD(12/26/9) histogram. Bullish
-entries require RSI between 50 and 70; bearish entries require RSI between 30 and
-50. Only a fresh false-to-true setup can enter. Stale, incomplete and prior-session
-bars cannot trigger entries. The existing daily market filter and contract-quality,
-earnings, ownership and capital limits still apply.
-
-Oasis stops opening entries 30 minutes before Alpaca's reported stock-session close
-and starts closing its options 15 minutes before close, including shortened
-sessions. Pending entries are canceled at the cutoff; cancellation remains pending
-until confirmed by the broker. Any overnight remainder is closed on the next open
-cycle. Momentum/cloud breakdown can exit earlier. Risk/order checks run every
-60 seconds plus processing time. The original expiration windows are retained.
-These are monitored limit-order exits, not guaranteed fills or maximum losses.
-Delayed indicative option quotes limit intraday paper-execution realism.
-
-A confirmed loss blocks all new contracts on that underlying through 30 calendar
-days after the loss; reentry is permitted on day 31. The check applies across
-regular, oasis and historical variants, survives restarts, and is enforced at the
-final entry gate. Winning exits do not start/reset the loss block. Regular keeps
-its existing ordinary reentry cooldown; oasis uses only the loss block and signal
-bar deduplication. Pending closing orders must reconcile before reentry.
-
-By default the block is also shared across all four sibling bots via read-only
-checks of these ledgers:
-
-- `options_direct/logs/trade_analytics.csv`
-- `options_inverted/logs/trade_analytics.csv`
-- `options_covered/logs/trades.sqlite3`
-- `options_secured/logs/options_secured.sqlite3`
-
-Set `LOSS_GUARD_SCOPE=bot` for checks only within each bot. For custom ledger
-locations, set `LOSS_LEDGER_PATHS` to a JSON object mapping bot directory names to
-absolute paths. Missing default ledgers are ignored; existing unreadable ledgers
-block entries until readable. This conservatively combines the configured ledgers
-without inferring whether they belong to the same taxpayer/account. Use ledgers
-from the intended trading environment. No external/manual accounts are inspected.
-This is not wash-sale tax accounting: it does not resolve substantially-identical
-instruments, the pre-loss purchase window, or unrecorded transactions.
-
-Historical daily backtests remain historical research, not Oasis simulations, and
-do not simulate the new shared loss block. Existing trade records are preserved.
-The changes load on the next restart; installation does not start or restart bots.
-
----
-
-Existing setup and historical research reference:
-
 # OptionsCovered
 
-An Alpaca covered-call bot adapted from the architecture of
-[aspittman/options_direct](https://github.com/aspittman/options_direct), inspected at
-commit `66737da21b00b51b25d93cca30388030d76f3a51`.
+OptionsCovered sells calls backed by explicitly allocated shares through Alpaca. It runs two styles: **regular**
+(the original daily strategy) and **oasis** (intraday EMA-cloud/momentum entries).
+Start with your own paper account and disabled entries. This guide is for a fresh
+installation; it does not require someone else's `.env`, virtual environment, or logs.
 
-It keeps the reference's Python CLI, daily signals, five-minute monitoring,
-limit orders, restart launcher and fill analytics. The strategy, collateral
-checks, order ledger and historical simulator are rewritten for short calls
-backed by **shares already owned**. It does not buy shares automatically.
+## 1. Install prerequisites
 
-This is an implementation with configurable research defaults, **not an
-empirically optimized or profitability-validated strategy**. The reference's
-long-call results and premium budgets do not transfer to covered calls.
+Use **Python 3.11 or 3.12 (64-bit)** and Git. These are the recommended versions for
+the pinned dependencies; newer Python versions may lack compatible package wheels.
+You need internet access and an Alpaca paper account with options access and the
+market-data permissions used by the bot. Paper fills can differ from real fills;
+see [Alpaca paper trading](https://docs.alpaca.markets/us/docs/paper-trading) and
+[options access](https://docs.alpaca.markets/us/docs/options-trading).
 
-## Strategy changes
+Choose the instructions for your operating system below. Run commands one line at
+a time in the indicated terminal; do not paste the surrounding Markdown fences.
 
-| Behavior | Reference long-call bot | OptionsCovered |
-| --- | --- | --- |
-| Market | Bullish MA/MACD trend | Sideways SPY and underlying daily signals |
-| Entry | Buy to open | Sell to open one call against 100 owned shares |
-| Expiration | 60–90 DTE | 30–45 DTE |
-| Delta | Around 0.60 | Around 0.25, tolerance 0.10 |
-| Strike | Directional long call | Above stock price and, by default, stock cost basis |
-| Exit | Sell long option | Buy to close short option |
-| Profit target | Rising option value | Buy back at 50% of entry credit |
-| Option stop | Falling option value | Buy back at twice entry credit |
-| Expiry management | Close by 30 DTE | Attempt close at 7 DTE |
-| Sizing | Premium paid | Unreserved shares and covered stock value |
+### Windows 10/11 — PowerShell
 
-Sideways means ADX(14) ≤ 20, RSI(14) between 40 and 60, absolute five-session
-change in the 50-day moving average ≤ 1.5%, and price within 4% of that average.
-The same filter applies to SPY unless `MARKET_FILTER=false`. Only bars through
-the previous Alpaca trading session are used; a missing latest completed session
-blocks entry. An eligible daily bar can produce one entry attempt per underlying,
-persisted across restarts. Unlike the reference's fresh trend-cross requirement,
-an ongoing sideways regime can produce another call after the prior one closes
-and the five **calendar-day** cooldown expires.
+1. Install Python 3.12 from [python.org](https://www.python.org/downloads/windows/).
+   Include the Python launcher and add Python to PATH when offered.
+2. Install [Git for Windows](https://git-scm.com/downloads/win), allowing command-line use.
+3. Close and reopen PowerShell, then run:
 
-The default watchlist is a broader liquid universe of index and sector ETFs plus
-large and mid-cap stocks, including lower-notional names such as XLF, XLE, XBI,
-EEM, INTC, F, T, PFE, SOFI, SNAP, and OXY. Set `UNDERLYINGS` in `.env` to the
-shares you own and want to write calls against; that override replaces the
-default universe. This bot has a separate
-`VIRTUAL_STARTING_CAPITAL=25000` allocation. It opens at most
-`MAX_CONTRACTS_PER_TRADE=1`, and each 100-share lot must be worth no more than
-`MAX_UNDERLYING_VALUE_PER_POSITION=25000`. Aggregate covered exposure is capped
-at `MAX_COVERED_VALUE=25000`; neither limit uses the shared Alpaca account's
-buying power.
-
-When the selected, otherwise-qualified call has an estimated one-contract
-midpoint premium of $500 or less, the terminal prints a green `LOW-PREMIUM
-COVERED CALL <= $500` marker with the contract and quote. This is a visibility
-marker only: it does not alter contract ranking or replace the preferred call
-with a cheaper strike. The bot continues to choose the best delta, DTE, and
-liquidity candidate first.
-
-Because four strategies share one Alpaca account, explicitly assign the exact
-100-share lot this bot controls. This records a virtual allocation and places no
-stock order:
-
-```bash
-python main.py --allocate-shares SPY --share-cost 450
+```powershell
+py -3.12 --version
+git --version
+New-Item -ItemType Directory -Force "$HOME\MyBotz"
+Set-Location "$HOME\MyBotz"
+git clone https://github.com/aspittman/options_covered.git
+Set-Location options_covered
+py -3.12 -m venv venv
+.\venv\Scripts\python.exe -m pip install --upgrade pip
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
+notepad .env
 ```
 
-The command refuses a lot whose current value exceeds $25,000, a lot already
-allocated in this ledger, or shares reserved by another account order. The
-allocation persists after a restart and remains strategy capital even while no
-call is open.
+If you installed Python 3.11, use `py -3.11` instead. The commands use the virtual
+environment's interpreter directly, so no activation or PowerShell execution-policy
+change is necessary. For subsequent `python ...` examples in this guide, Windows
+users should substitute `.\venv\Scripts\python.exe ...`.
 
-## Setup and first run
+### macOS — Terminal
 
-Python 3.10+ on Linux/macOS:
+1. Install Python 3.12 from [python.org](https://www.python.org/downloads/macos/).
+   If the installer supplies **Install Certificates.command**, run it to configure
+   HTTPS certificates. Do not disable TLS verification to bypass certificate errors.
+2. Run `git --version`; if macOS offers Command Line Tools, install them and wait
+   for completion. Alternatively install Git from [git-scm.com](https://git-scm.com/downloads/mac).
+3. Open Terminal and run:
 
 ```bash
+python3.12 --version
+git --version
+mkdir -p ~/MyBotz
+cd ~/MyBotz
+git clone https://github.com/aspittman/options_covered.git
+cd options_covered
+python3.12 -m venv venv
+source venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+cp .env.example .env
+nano .env
+```
+
+In nano, save with **Control+O**, Enter, then exit with **Control+X** (Control, not
+Command). Use `python3.11` if that is the supported version you installed.
+
+### Linux — Terminal
+
+Install Git, Python and virtual-environment support through your distribution.
+For Ubuntu 24.04 / a Debian-based system providing Python 3.11 or 3.12:
+
+```bash
+sudo apt update
+sudo apt install git python3 python3-venv python3-pip
+python3 --version
+git --version
+mkdir -p ~/MyBotz
+cd ~/MyBotz
+git clone https://github.com/aspittman/options_covered.git
+cd options_covered
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 cp .env.example .env
-cp events.example.json events.json
+nano .env
 ```
 
-Put your Alpaca **paper** API credentials in `.env` using `APCA_API_KEY_ID` and
-`APCA_API_SECRET_KEY`. Existing `ALPACA_API_KEY`/`ALPACA_SECRET_KEY` and
-`API_KEY`/`SECRET_KEY` environment names are also accepted. Use a paper account
-with options approval and at least 100 shares of an allowed underlying.
+Check the printed Python version before creating the environment. If your default
+is outside 3.11–3.12, install a supported interpreter through your distribution and
+use its explicit executable (for example `python3.12 -m venv venv`). On Fedora,
+use `dnf` to install Git and a supported Python version; do not run `apt` commands.
+Do not use `sudo pip` or install these dependencies into the system Python.
 
-The initial settings are `ALPACA_PAPER=true`, `DRY_RUN=true`, and
-`ENABLE_NEW_ENTRIES=false`. Run one read-only account cycle:
+## 2. Configure your own paper account
+
+1. Sign in to Alpaca, select your **paper trading** account, and generate your own
+   paper API key and secret. Paper and live credentials are separate.
+2. Edit the `.env` file created above. Keep the other example settings, and set:
+
+```dotenv
+APCA_API_KEY_ID=replace_with_your_paper_key
+APCA_API_SECRET_KEY=replace_with_your_paper_secret
+ALPACA_PAPER=true
+ENABLE_NEW_ENTRIES=false
+VIRTUAL_STARTING_CAPITAL=25000
+LOSS_GUARD_SCOPE=portfolio
+OPTION_TRAILING_STOP_PERCENT=0.20
+```
+
+3. Save as exactly `.env`, not `.env.txt`. On Windows enable file-name extensions
+   in File Explorer if needed. Do not paste keys into code, screenshots, issues,
+   chat messages, or commits. `.env`, `venv/`, and `logs/` are local and ignored by Git.
+4. Check that your paper account supports this option strategy and has sufficient
+   simulated funds. A virtual allocation is a reporting/risk budget, not an Alpaca
+   deposit or a separate subaccount. Four $25,000 virtual budgets do not create
+   $100,000 of buying power. Shared-account broker limits still apply.
+5. Keep a fresh local ledger for your own account. Never copy the repository owner's
+   `.env` or `logs/`. Never point a friend’s bot at your loss ledgers or report files.
+   If you change brokerage account, use a separate installation and fresh ledger.
+
+### Covered-call prerequisite: allocate your own paper shares
+
+This bot does not buy stock for you. Before enabling entries, your paper account
+must own an unreserved lot of 100 shares of a supported underlying. Verify the
+actual filled per-share cost in Alpaca. Reserve this lot exclusively for this bot;
+do not allocate the same shares to another covered-call bot or manual call sale.
+
+From this bot's folder, register the existing lot using its symbol and actual cost:
+
+```text
+python main.py --allocate-shares SYMBOL --share-cost ACTUAL_COST
+```
+
+Replace `SYMBOL` and `ACTUAL_COST` with your verified values; they are placeholders.
+On Windows use `.\venv\Scripts\python.exe` instead of `python`.
+This command records a local allocation and verifies broker coverage; it places no
+stock orders. A $250 stock costs $25,000 per 100-share lot, so the virtual allocation
+and coverage caps must accommodate the entire stock lot, not just call premium.
+Closing an Oasis call leaves the stock holding in place. Stock losses count in this
+bot's combined return, even when no call is open.
+
+The example also sets `DRY_RUN=true`: this blocks **all** submissions and cancellations,
+including exits. After verifying setup, change it to `DRY_RUN=false` for paper order
+management. Use `ENABLE_NEW_ENTRIES=false` (with `DRY_RUN=false`) when you want to pause
+entries while continuing to manage existing positions.
+
+## 3. Verify setup without placing orders
+
+From the repository folder, with the environment active on macOS/Linux:
 
 ```bash
-python main.py --once
+python setup_check.py
+python setup_check.py --broker
 ```
 
-To preview entry decisions, set `ENABLE_NEW_ENTRIES=true` and leave
-`DRY_RUN=true`. To submit paper orders after reviewing the setup, set
-`DRY_RUN=false` while keeping `ALPACA_PAPER=true`. Then run:
+Windows:
+
+```powershell
+.\venv\Scripts\python.exe setup_check.py
+.\venv\Scripts\python.exe setup_check.py --broker
+```
+
+The first check validates local configuration and market timezone support. The
+second only reads your paper account. Neither creates a trading ledger nor submits
+or cancels orders. Confirm both pass and review the reported account status/options
+level. This verifies connectivity, not the availability of every data feed or contract.
+Existing shell environment variables override `.env`; check them if the printed
+mode/settings disagree with the file.
+
+## 4. Start with new entries disabled
+
+Keep `ALPACA_PAPER=true` and `ENABLE_NEW_ENTRIES=false`, then run:
 
 ```bash
 python main.py
-# Optional restart supervisor:
-python launcher.py
 ```
 
-`ENABLE_NEW_ENTRIES=false` continues managing existing bot calls when dry run
-is off. `DRY_RUN=true` prevents **all** submissions and cancellations, including
-exits. The implementation supports `ALPACA_PAPER=false`, but live execution has
-not been tested. No account orders were submitted during development.
+Windows:
 
-## Event calendar and market data
+```powershell
+.\venv\Scripts\python.exe main.py
+```
 
-Before opening calls, populate `events.json` for each underlying with
-`verified_on`, `valid_through`, `earnings` and `ex_dividend`. The example is
-deliberately out of date. Supply actual verified ISO dates; empty event lists
-mean you verified that no events occur in the covered interval.
+Always run from this bot's folder. Use one process per bot and a separate terminal
+for each bot. Read the startup log and verify that new entries are disabled.
+For a single cycle, use `python main.py --once` (with the Windows interpreter substitution where needed).
 
-Verification must be no more than seven days old, and coverage must extend
-through the selected expiration. Earnings or ex-dividend dates from today
-through expiration plus one day block that contract. Missing or stale calendars
-block new calls, and the log identifies the skipped contract-selection stage.
-Existing-call exits do not depend on this file. Refresh the calendar weekly
-and after any announced change. There is no automatic corporate-event provider.
+A disabled-entry run can still manage existing positions and cancel blocked or stale
+orders. It is not a no-order simulation of an existing ledger. Start onboarding with
+a fresh paper account/ledger; use the read-only checks above if you only want to
+verify credentials. Covered additionally defaults to `DRY_RUN=true`, which prevents exit orders too.
 
-Stocks use Alpaca IEX daily bars and latest trades. Options use `indicative` by
-default; `OPTION_FEED=opra` requires the appropriate data entitlement. Quotes
-and stock trades must be at most 120 seconds old. Indicative quotes and Greeks
-may differ from executable market data; missing data blocks entries.
+Watch at least one market-open cycle. Rejection/skip messages are normal: no signal,
+stale quotes, liquidity, insufficient collateral, or a shared loss cooldown can all
+prevent a trade. Do not weaken safeguards just to force activity.
 
-Contracts must have standard 100-share size, a positive bid, sufficient daily
-volume and open interest, a narrow spread and the configured delta. Minimum
-credit is $0.20 per share, and minimum credit/stock-price ratio is 0.2% for the
-entire call term, not an annualized yield. Entries use midpoint day-limit orders
-rounded down to conservative nickel/dime ticks. Exits use ask-priced limits
-rounded up. Neither guarantees a fill.
+## 5. Enable paper entries deliberately
 
-## Order safety and recovery
+1. Review your configured capital, contract count, stock coverage/cash collateral,
+   and strategy settings. Regular retains its original stops. **Oasis alone** uses
+   the 20% fixed option stop and 20% option-premium trail.
+2. Stop the process with **Ctrl+C**. Change `.env` to `ENABLE_NEW_ENTRIES=true`.
+   Also set `DRY_RUN=false` to allow paper order management.
+3. Restart with the same `main.py` command, verify the mode, and monitor the first
+   submissions and confirmed fills in both the terminal and Alpaca paper dashboard.
+4. To pause new entries, stop, set `ENABLE_NEW_ENTRIES=false`, and restart.
+   Stopping the program or letting the computer sleep also stops its monitored exits.
+   Ctrl+C does not liquidate positions or guarantee cancellation of broker orders.
 
-The bot counts account-wide short calls, unfilled sell-call quantities and open
-stock sales when checking collateral. Pending stock purchases and pending call
-buybacks never count as freed shares. It also honors `qty_available=0`, blocks
-unsupported adjusted symbols and open multi-leg orders, and rechecks before
-submission. Existing option exposure on the underlying blocks new entries;
-external positions are never automatically adopted or closed.
+This guide does not enable live trading. Stops use monitored limit-order exits and
+can fail to fill; their trigger percentages are not guaranteed maximum losses.
+Keep the computer awake, connected, and the process running while relying on it
+for exits. Inspect broker positions and open orders before shutting down.
 
-Keep a dedicated account, or coordinate stock sales and option trades with other
-tools: account reads and order submission are not an atomic transaction. The
-broker's final collateral check remains necessary. A local process lock prevents
-two instances using the same ledger; different ledgers/machines are not locked
-together. Backing shares are never sold by this bot. A detected collateral
-shortfall triggers an attempt to buy back its call.
+## 6. Read the return after every cycle
 
-`logs/trades.sqlite3` records intent **before** submission, binds to the account
-and paper/live environment, and tracks cumulative partial fills without counting
-them twice. A timeout retains the client order ID for broker lookup. Uncertain
-orders pause further submissions. Cancellation is not treated as confirmation:
-reservations remain until the broker reports a terminal status. Stale entries
-request cancellation after 15 minutes; stale exits after two minutes and retry
-with a fresh ask in a subsequent cycle after cancellation is confirmed.
+Each completed cycle ends with a **SINCE INCEPTION** table containing rows for
+`options_direct`, `options_inverted`, `options_covered`, and `options_secured`, with
+signed percentages, dates, and data status. Both regular and Oasis are included in
+each bot's combined result, along with its retained historical variants.
 
-Assignment, expiration and external trading can change broker holdings. If a
-tracked position disappears or its quantity differs, entries pause and the bot
-logs `POSITION_MISMATCH`. It does not invent a closing fill or realized profit.
-Other consistent tracked positions remain eligible for exit management. This
-version requires manual reconciliation of assignment/expiration against broker
-activity; it does not automatically book the stock disposition or restart the
-covered-call cycle after assignment. Preserve the ledger and inspect the broker
-activity before changing state. Never delete a ledger to work around an
-unresolved order. A `submission_unknown` that the broker cannot resolve also
-requires manual investigation.
+```text
+SINCE INCEPTION | bot P/L / starting allocation | PAPER
+options_direct       +2.40% | since ... | as of ... | latest cycle | ok
+options_inverted     -0.80% | since ... | as of ... | latest cycle | ok
+options_covered         N/A | no cycle report yet
+options_secured      +0.60% | since ... | as of ... | latest cycle | ok
+```
 
-Every qualified opportunity rejected after signal validation is written to
-`logs/rejected_trades.csv` and the SQLite `rejected_trades` table. Records include
-contract, quote, spread, DTE, required capital, available virtual capital,
-signal date and a reason such as `UNDERLYING_VALUE_OVER_LIMIT`,
-`MAX_STRATEGY_EXPOSURE_REACHED`, `INSUFFICIENT_LIQUIDITY`, or
-`SPREAD_TOO_WIDE`. Repeated five-minute scans are deduplicated by signal,
-underlying, contract and reason.
+These are illustrative numbers, not results or forecasts. The formula is:
 
-## Analytics and testing
+```text
+since-inception return (%) = 100 × (recorded realized P/L + marked unrealized P/L)
+                                  / original VIRTUAL_STARTING_CAPITAL
+```
+
+A $600 combined profit on a $25,000 allocation is +2.40%. This is a nonannualized
+bot return, not the whole Alpaca account return or the percentage return on a single
+option's premium. It is before taxes and any fees not recorded in the bot ledger.
+Covered returns include its allocated shares; secured returns include assigned stock.
+
+“Inception” means the earliest recorded fill/allocation, or the first successful
+report for a fresh empty ledger. It is not the repository's creation/clone date.
+All retained fills are included regardless of `BOT_PERFORMANCE_START_DATE`, which
+may still select a shorter period in older research tables. Missing prices or
+unresolved history show **N/A**, not an assumed zero loss. A peer report older than
+three minutes is labeled **STALE**; timestamps let you identify a stopped bot.
+The bots do not synchronize their scans, so peer rows show their latest cycle.
+Direct/inverted produce no completed-cycle table while waiting for market open.
+
+The machine-readable copy is `logs/since_inception.json`, with field
+`since_inception_return_pct`. Live-mode snapshots, where supported, are separated
+under `logs/live/`; paper dashboards reject live-mode reports. Keep the starting
+allocation fixed: changing it causes N/A rather than silently rewriting the return.
+Do not delete this report or the underlying ledger to reset performance.
+The original trade-history file for this bot is `logs/trades.sqlite3`.
+Back up the entire `logs/` folder after stopping the bot; SQLite sidecar files may
+be needed. An incomplete/deleted history cannot recreate true lifetime returns.
+
+## 7. Run multiple bots on your computer
+
+Clone any additional repositories beside this one, not inside it:
+
+```text
+MyBotz/
+  options_direct/
+  options_inverted/
+  options_covered/
+  options_secured/
+```
+
+From `MyBotz`, clone each repository you do not already have:
 
 ```bash
-python main.py --paper-results
-python backtester.py --paper-results
-python3 -m unittest -v
+git clone https://github.com/aspittman/options_direct.git
+git clone https://github.com/aspittman/options_inverted.git
+git clone https://github.com/aspittman/options_covered.git
+git clone https://github.com/aspittman/options_secured.git
 ```
 
-Reports use confirmed opening credit minus confirmed closing debit, multiplied
-by 100. Open-call P/L uses current asks when available. Missing marks are listed
-explicitly. Local `--paper-results` does not fetch quotes. The CSV
-`logs/trade_analytics.csv` exports incremental confirmed fills; SQLite is the
-authoritative ledger. These are **option-only** realized/unrealized figures,
-excluding fees, dividends and stock gains/losses, not total covered-call returns.
-`main.py --paper-results` also reports allocated-share cost, realized and
-unrealized stock P/L, combined return on the $25,000 virtual allocation,
-capital employed, assignment/expiration/buy-to-close outcomes, and missing
-marks. The report does not infer assignment from a missing position: Alpaca
-`OPASN`/`OPEXP` activity and, for assignment, its exact matching stock trade are
-required. Alpaca documents `OPASN` as assignment and `OPEXP` as expiration
-activity in its account activity feed.
+Follow each README separately: each folder needs its own environment and `.env`.
+Keep separate ledgers, even when your bots use the same paper account. Never reuse
+someone else's history. Default sibling placement enables both the four-bot display
+and your shared loss guard. With `LOSS_GUARD_SCOPE=portfolio`, a recorded loss in any
+of these bots blocks that underlying for both variants across all four bots through
+calendar day 30; day 31 permits re-entry. Only recorded local activity is covered;
+this is not complete tax accounting or a tax-compliance guarantee.
 
-For historical research, provide one underlying's daily CSV containing
-`date,open,high,low,close` with consistent prices:
+For a custom location, `LOSS_LEDGER_PATHS` controls ledger discovery (see the
+[strategy reference](STRATEGY_REFERENCE.md)); it does not configure the display.
+`PERFORMANCE_REPORT_PATHS` is an optional JSON object mapping bot names to their
+`since_inception.json` files, for example:
 
-```bash
-python backtester.py --csv data/SPY.csv --virtual-capital 25000
+```dotenv
+PERFORMANCE_REPORT_PATHS={"options_covered":"/path/to/options_covered/logs/since_inception.json"}
 ```
 
-The simulator buys 100 shares at the first bar's open, uses yesterday's signal
-for today's opening call, estimates volatility from previous daily returns, and
-models option prices with Black–Scholes. It reports stock-plus-option equity,
-drawdown and a 100-share buy-and-hold benchmark, with a modeled spread and
-per-contract fees. Final open calls are marked closed at the last bar's ask.
-Output goes to `logs/covered_call_backtest_trades.csv` and
-`logs/covered_call_equity_curve.csv`.
+On Windows use forward slashes in JSON paths, such as `C:/Users/you/MyBotz/...`.
+These local files do not automatically synchronize across different computers.
+A bot you haven't installed or started appears as N/A.
 
-Use `--virtual-capital 10000`, `25000`, or `50000` to compare allocation
-scenarios. The summary reports qualified signals, executed entries, and signals
-rejected solely by the underlying capital ceiling. `--starting-cash` remains
-available for a separate cash account assumption; by default the simulator uses
-the virtual allocation.
+## 8. Restart, update, and troubleshoot
 
-This is a synthetic single-underlying research tool, not historical option-chain
-execution or a reproduction of every runtime filter. It omits market-wide
-filtering, option liquidity, event calendars, actual listed strike grids,
-dividends, intraday stops, early exercise and portfolio-wide allocation.
-It holds entry volatility fixed while marking each call. It cannot establish
-achievable returns or rank settings reliably without real option quotes and
-out-of-sample validation. The reference's multi-year download and actual-option
-repricing CLI modes have not been ported.
+After opening a new terminal, return to the repository folder. On macOS/Linux run
+`source venv/bin/activate` again. On Windows continue using
+`.\venv\Scripts\python.exe`. Then run `main.py` as above.
 
-## Strategy limits and sources
+To update: inspect broker exposure first, stop the bot, and back up `.env` and all
+of `logs/` privately. Run `git status` and preserve any local code changes, then
+`git pull --ff-only` and `python -m pip install -r requirements.txt` (use the Windows
+interpreter there). Review new `.env.example` settings without overwriting your
+existing `.env`. Restart and verify startup settings. Never delete a ledger to
+resolve a startup error or mix an old ledger with a different account.
 
-Covered calls retain substantial stock downside and cap gains above the strike.
-A call profit target or buyback stop does not stop a loss on the stock. Assignment
-can occur before expiration, including before an attempted seven-DTE exit.
-Buying back an expensive call can also lose money even when the stock rises.
+| Symptom | What to check |
+| --- | --- |
+| `git` / `py` / `python3.12` not found | Finish installing, reopen the terminal, check PATH and the installed Python version. |
+| Clone denied / repository not found | Verify the repository URL and GitHub access; authenticate to GitHub if the repo is private. Alpaca keys are unrelated to GitHub login. |
+| `No module named ...` | Use this bot's venv interpreter and rerun `-m pip install -r requirements.txt`. |
+| No matching dependency / compiler error | Check Python is 64-bit 3.11/3.12 and pip is current; save the first failing package/error. Do not randomly unpin packages. |
+| Missing `.env` / credentials | Run from the repository directory, check `.env.txt`, placeholders, and shell overrides. |
+| 401 / 403 / unavailable quotes | Verify paper keys and account/options/data permissions; check network and Alpaca service status. Do not bypass quote checks. |
+| `ZoneInfoNotFoundError` | Reinstall requirements in the venv; `tzdata` supplies market timezones on Windows. |
+| Already running / locked ledger | Stop the other instance normally; don't delete a lock to bypass an active process. |
+| No trades | Read skip/rejection messages, market clock, entry toggle, loss guard and collateral limits. |
+| Return N/A / STALE | Check the row's status/as-of timestamp, current prices, reconciliation and whether that sibling bot is running. |
 
-See [Alpaca's covered-call order requirements](https://docs.alpaca.markets/us/docs/options-orders),
-[Alpaca order intents](https://alpaca.markets/sdks/python/api_reference/trading/enums.html),
-and [OIC's covered-call payoff and assignment explanation](https://www.optionseducation.org/strategies/all-strategies/covered-call-buy-write).
+For a code-only regression check, use an isolated test checkout/environment with
+fake API credentials and `LOSS_GUARD_SCOPE=bot`; the suite uses mocks and fixtures.
+The test command for this repository is `python -m unittest discover -q`. Do not point tests at your
+production ledger. This update was tested on Linux; Windows locking is also covered
+with a simulated Windows backend, but native Windows/macOS execution is not verified.
+
+Read the [strategy/configuration/research reference](STRATEGY_REFERENCE.md) for
+indicator rules, exit behavior, exports, and backtest commands. For environment
+background, see [Python's venv documentation](https://docs.python.org/3.12/library/venv.html).

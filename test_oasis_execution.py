@@ -1,3 +1,4 @@
+from zoneinfo import ZoneInfo
 import tempfile
 import unittest
 from pathlib import Path
@@ -21,8 +22,8 @@ class CoveredOasisExecutionTests(unittest.TestCase):
                 ledger.update(cid,NS(client_order_id=cid,symbol=symbol,side='sell' if intent=='sell_to_open' else 'buy',filled_qty=1,filled_avg_price=price,id=cid,status='filled',filled_at=now.isoformat()))
             self.assertAlmostEqual(ledger.report()['by_variant']['oasis']['realized_option_pnl'],-20)
             ledger.db.close();ledger=Ledger(path)
-            self.assertTrue(ledger.loss_blocked('SPY',now.date()+timedelta(days=30)))
-            self.assertFalse(ledger.loss_blocked('SPY',now.date()+timedelta(days=31)))
+            self.assertTrue(ledger.loss_blocked('SPY',now.astimezone(ZoneInfo("America/New_York")).date()+timedelta(days=30)))
+            self.assertFalse(ledger.loss_blocked('SPY',now.astimezone(ZoneInfo("America/New_York")).date()+timedelta(days=31)))
             broker=MagicMock();broker.clock.return_value=NS(is_open=True,timestamp=now,next_close=now+timedelta(hours=2))
             bot=CoveredCallBot(broker,ledger,Settings(dry_run=False,enable_new_entries=True))
             for variant in ('regular','oasis'):

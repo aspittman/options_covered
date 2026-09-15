@@ -1,5 +1,6 @@
+from runtime_performance import report_cycle
 import argparse
-import fcntl
+import process_lock as fcntl
 import logging
 import time
 
@@ -26,7 +27,7 @@ def main():
         print(json.dumps(Ledger(settings.ledger_path).research_report(settings), indent=2))
         return
     # Same-path lock prevents two processes from racing collateral checks.
-    with open(str(settings.ledger_path) + '.lock', 'w') as lock:
+    with open(str(settings.ledger_path) + '.lock', 'a') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -65,6 +66,7 @@ def main():
                 if args.once:
                     raise
             finally:
+                report_cycle(bot)
                 ledger.export_fills(settings.ledger_path.parent / 'trade_analytics.csv')
                 ledger.export_rejections(settings.ledger_path.parent / 'rejected_trades.csv')
             if args.once:

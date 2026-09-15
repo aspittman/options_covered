@@ -195,6 +195,7 @@ class CoveredCallBot:
                               limit_price(ask, closing=True), reason=reason)
             except (ValueError, TypeError) as exc:
                 self.note('EXIT_DATA_UNAVAILABLE', symbol=symbol, error=str(exc))
+        self.cycle_marks = (marks, stock_marks)
         self.note('PERFORMANCE', **self.ledger.research_report(self.settings, marks, stock_marks, record=True))
         return reliable
 
@@ -410,6 +411,7 @@ class CoveredCallBot:
         return reliable
 
     def cycle(self):
+        self.cycle_marks = ({}, {})
         now = datetime.now(timezone.utc)
         account = self.broker.account()
         self.ledger.bind_account(str(value(account, 'id')), self.settings.paper)

@@ -2,7 +2,6 @@
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
 from math import floor, isfinite
-from selection import volume_status
 import re
 
 
@@ -91,7 +90,6 @@ def limit_price(price, closing=False):
     return float((Decimal(str(price)) / tick).to_integral_value(rounding=mode) * tick)
 
 
-
 def evaluate_candidate(contract, snapshot, volume, spot, cost_basis, today, now, settings):
     """Original quality rules, with explicit reasons for research rejections."""
     parsed = parse_option(value(contract, 'symbol'))
@@ -107,13 +105,7 @@ def evaluate_candidate(contract, snapshot, volume, spot, cost_basis, today, now,
         return None, 'NO_VALID_CONTRACT'
     if settings.above_cost_basis and (cost_basis <= 0 or strike < cost_basis):
         return None, 'NO_VALID_CONTRACT'
-    interest = value(contract, 'open_interest')
-    if volume_status(interest, settings.min_open_interest) == 'volume_data_unavailable':
-        return None, 'OPEN_INTEREST_DATA_UNAVAILABLE'
-    status = volume_status(volume, settings.min_volume)
-    if status == 'volume_data_unavailable':
-        return None, 'VOLUME_DATA_UNAVAILABLE'
-    if number(interest) < settings.min_open_interest or status:
+    if number(value(contract, 'open_interest') or 0) < settings.min_open_interest or volume < settings.min_volume:
         return None, 'INSUFFICIENT_LIQUIDITY'
     try:
         bid, ask = quote_prices(value(snapshot, 'latest_quote'), now, settings.quote_age_seconds)

@@ -7,9 +7,9 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 from alpaca.data.enums import DataFeed, OptionsFeed
 from alpaca.data.historical import OptionHistoricalDataClient, StockHistoricalDataClient
-from alpaca.data.requests import OptionBarsRequest, OptionSnapshotRequest, StockBarsRequest, StockLatestTradeRequest
+from alpaca.data.requests import OptionBarsRequest, OptionSnapshotRequest, StockBarsRequest, StockLatestTradeRequest, StockLatestQuoteRequest
 from alpaca.data.timeframe import TimeFrame
-from alpaca.trading.client import TradingClient
+from bot_ownership import TradingClient
 from alpaca.trading.enums import AssetStatus, ContractType, OrderSide, PositionIntent, QueryOrderStatus, TimeInForce
 from alpaca.trading.requests import GetCalendarRequest, GetOptionContractsRequest, GetOrdersRequest, LimitOrderRequest
 from risk import parse_option
@@ -82,6 +82,29 @@ class AlpacaBroker:
             symbol=symbol, qty=qty, side=OrderSide.SELL if intent == 'sell_to_open' else OrderSide.BUY,
             position_intent=PositionIntent(intent), limit_price=price, time_in_force=TimeInForce.DAY,
             client_order_id=client_id))
+
+    def stock_quote(self, symbol, now):
+        from risk import quote_prices
+        asset = self.trading.get_asset(symbol)
+        if (not asset.tradable or str(getattr(asset.asset_class, 'value', asset.asset_class)) != 'us_equity'):
+            raise MarketDataUnavailable('Underlying is not a tradable equity/ETF')
+        quote = self.stocks.get_stock_latest_quote(
+            StockLatestQuoteRequest(symbol_or_symbols=symbol, feed=DataFeed.IEX))[symbol]
+        return quote_prices(quote, now, self.settings.quote_age_seconds)
+
+    def submit_stock(self, client_id, symbol, price):
+        from math import isfinite
+        import re
+        if not (self.settings.paper and self.settings.auto_buy_shares
+                and self.settings.enable_new_entries and not self.settings.dry_run):
+            raise ValueError('Stock acquisition requires enabled paper buy-write mode')
+        if (not client_id.startswith('covered_stock_') or not re.fullmatch(r'[A-Z][A-Z.]{0,9}', symbol)
+                or parse_option(symbol) or not isfinite(price) or price <= 0):
+            raise ValueError('Invalid stock acquisition order')
+        return self.trading.submit_order(LimitOrderRequest(
+            symbol=symbol, qty=100, side=OrderSide.BUY, type='limit',
+            limit_price=price, time_in_force=TimeInForce.DAY,
+            extended_hours=False, client_order_id=client_id))
 
     def option_activities(self, since):
         """SDK has no trading activity wrapper; use its authenticated REST GET.

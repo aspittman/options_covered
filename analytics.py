@@ -8,11 +8,12 @@ from uuid import uuid4
 
 from risk import enum_value, number, value
 from research import ResearchLedger
+from stock_ledger import StockLedger
 
 TERMINAL = {'filled', 'canceled', 'expired', 'rejected', 'replaced'}
 
 
-class Ledger(ResearchLedger):
+class Ledger(StockLedger, ResearchLedger):
     def __init__(self, path):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(path)
@@ -35,6 +36,7 @@ class Ledger(ResearchLedger):
                 id INTEGER PRIMARY KEY, timestamp TEXT, kind TEXT, details TEXT);
         ''')
         self.init_research()
+        self.init_stock_ledger()
 
     def bind_account(self, account_id, paper):
         identity = f'{account_id}:{paper}'

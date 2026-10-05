@@ -1,3 +1,8 @@
+> **Buy-write update:** the current [README](README.md#automatic-paper-buy-write-workflow)
+> describes automatic paper stock acquisition. Statements below that stock orders
+> are forbidden or shares must always be bought manually describe the earlier
+> manual-allocation mode. Stock sales remain disabled; option stops remain unchanged.
+
 > For installation and safe first-run instructions, use [README.md](README.md).
 > This document preserves the detailed strategy, configuration and research reference.
 

@@ -53,8 +53,8 @@ class ResearchLedger:
         shares, cost_per_share, spot = map(number, (shares, cost_per_share, spot))
         if shares != 100 or min(cost_per_share, spot) <= 0:
             raise ValueError('Allocate exactly 100 shares with positive cost and current price')
-        if underlying in self.allocations():
-            raise ValueError('This underlying already has a strategy allocation')
+        if underlying in self.allocations() or any(r['symbol'] == underlying for r in self.pending_stock()):
+            raise ValueError('This underlying already has an allocation or pending stock acquisition')
         state = self.capital_state(settings)
         required = max(cost_per_share, spot) * shares
         if required > settings.max_underlying_value_per_position:
@@ -72,9 +72,11 @@ class ResearchLedger:
         # Cost is a floor for risk sizing; gains never increase the fixed allocation.
         employed = sum(r['shares'] * max(r['cost_per_share'], stock_marks.get(s, r['cost_per_share']))
                        for s, r in allocations.items())
+        reserved = self.stock_reserved()
+        employed += reserved
         realized = self.report()['realized_option_pnl'] + self.realized_stock_pnl()
         budget = max(0, min(settings.virtual_starting_capital, settings.virtual_starting_capital + realized))
-        return {'capital_employed': employed, 'budget': budget,
+        return {'capital_employed': employed, 'pending_stock_reservation': reserved, 'budget': budget,
                 'virtual_capital_available': max(0, budget - employed)}
 
     def realized_stock_pnl(self):
@@ -218,5 +220,6 @@ class ResearchLedger:
                       share_appreciation_depreciation=realized_stock + stock_unrealized if not missing_stocks else None,
                       shares_called_away=called, unmarked_stock_symbols=missing_stocks,
                       premium_income=options['realized_option_pnl'],
-                      allocations=stocks, **self.capital_state(settings, stock_marks))
+                      allocations=stocks, stock_lifecycle=self.stock_lifecycle(),
+                      pending_stock_orders=self.pending_stock(), **self.capital_state(settings, stock_marks))
         return result

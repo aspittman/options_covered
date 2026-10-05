@@ -52,7 +52,7 @@ class Settings:
     delta_tolerance: float = .10
     max_spread: float = .10
     min_open_interest: int = 500
-    min_volume: int = 50
+    min_volume: int = 100
     min_credit: float = .20
     min_yield: float = .002
     max_contracts: int = 2

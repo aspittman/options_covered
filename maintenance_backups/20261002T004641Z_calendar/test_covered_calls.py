@@ -332,7 +332,7 @@ class StrategyAndBacktestTests(unittest.TestCase):
         import json
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'events.json'
-            entry = {'verified_on': TODAY.isoformat(), 'valid_through': (EXPIRY + timedelta(days=1)).isoformat(),
+            entry = {'verified_on': TODAY.isoformat(), 'valid_through': EXPIRY.isoformat(),
                      'earnings': [], 'ex_dividend': []}
             path.write_text(json.dumps({'SPY': entry}))
             self.assertEqual(event_block(path, 'SPY', TODAY, EXPIRY), '')

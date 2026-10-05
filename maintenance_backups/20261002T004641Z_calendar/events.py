@@ -7,15 +7,11 @@ def event_block(path, symbol, today, expiration):
     try:
         calendar = json.loads(path.read_text())
         row = calendar[symbol]
-        if not isinstance(row, dict) or any(not isinstance(row.get(k), list) for k in ('earnings', 'ex_dividend')):
-            return 'event_calendar_unavailable'
-        if row.get('verification_error'):
-            return 'event_calendar_source_requires_review'
         if not date.fromisoformat(row['verified_on']) <= today <= date.fromisoformat(row['valid_through']):
             return 'event_calendar_stale'
         if (today - date.fromisoformat(row['verified_on'])).days > 7:
             return 'event_calendar_verification_older_than_7_days'
-        if date.fromisoformat(row['valid_through']) < expiration + timedelta(days=1):
+        if date.fromisoformat(row['valid_through']) < expiration:
             return 'event_calendar_does_not_cover_expiration'
         for kind in ('earnings', 'ex_dividend'):
             for stamp in row[kind]:

@@ -355,15 +355,6 @@ class CoveredCallBot(BuyWrite):
             return
         spot = self.broker.spot(underlying, now)
         cost_basis = allocation['cost_per_share'] if allocation else spot
-        allocations = self.ledger.allocations()
-        marks = {u: self.broker.spot(u, now) for u in allocations}
-        capital = self.ledger.capital_state(s, marks)
-        prospective = capital['capital_employed'] + (max(spot, cost_basis) * 100 if not allocation else 0)
-        budget_reason = capital_rejection(spot, cost_basis, prospective, capital['budget'], s)
-        if budget_reason:
-            self.reject(underlying, state, budget_reason, spot=spot,
-                        details='Share collateral exceeds strategy budget before contract scan')
-            return
         contracts = self.broker.contracts(underlying, spot, today)
         symbols = [c.symbol for c in contracts]
         snapshots = self.broker.snapshots(symbols)
@@ -374,7 +365,7 @@ class CoveredCallBot(BuyWrite):
             if value(c, 'underlying_symbol') != underlying:
                 continue
             blocked = event_block(s.events_path, underlying, today, c.expiration_date)
-            score, reason = evaluate_candidate(c, snapshots.get(c.symbol), volumes.get(c.symbol),
+            score, reason = evaluate_candidate(c, snapshots.get(c.symbol), volumes.get(c.symbol, 0),
                                                spot, cost_basis, today, now, s)
             if blocked:
                 rejected.append((c, 'OTHER', blocked))
@@ -391,8 +382,8 @@ class CoveredCallBot(BuyWrite):
                 self.reject(underlying, state, 'NO_VALID_CONTRACT', spot=spot)
             return
         _, contract = min(ranked, key=lambda pair: pair[0])
-        # Only rank contracts after the underlying's share allocation fits.
-        # Final broker cash, coverage, and current-price guards still run below.
+        # Selection above is unchanged by capital. Never substitute a cheaper or
+        # inferior contract when the selected trade exceeds the strategy allocation.
         if not allocation:
             # Evaluate the option first; acquire collateral only for a qualifying pair.
             return self.acquire_stock(underlying, state, contract, now, today)
@@ -405,7 +396,7 @@ class CoveredCallBot(BuyWrite):
             return
         snapshot = self.broker.snapshots([contract.symbol]).get(contract.symbol)
         now = datetime.now(timezone.utc)
-        score, reason = evaluate_candidate(contract, snapshot, volumes.get(contract.symbol),
+        score, reason = evaluate_candidate(contract, snapshot, volumes.get(contract.symbol, 0),
                                            spot, cost_basis, today, now, s)
         if reason:
             self.reject(underlying, state, reason, contract.symbol, spot, snapshot, 'Final quote recheck')

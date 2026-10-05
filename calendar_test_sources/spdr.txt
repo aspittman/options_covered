@@ -1,0 +1,317 @@
+                                                                                       Dividend Distribution Schedule
+                                                                                                                                                                                                                                 Calendar Year 2026
+
+                                                                                                                              Monthly
+                                               Ex Date      Record Date Payable Date
+January                                         1/16/2026      1/16/2026   2/17/2026   State Street SPDR Dow Jones Industrial Average ETF Trust (DIA)
+February                                        2/20/2026      2/20/2026   3/16/2026
+March                                           3/20/2026      3/20/2026   4/13/2026
+April                                           4/17/2026      4/17/2026   5/11/2026
+May                                             5/15/2026      5/15/2026   6/15/2026
+June                                            6/18/2026      6/18/2026   7/13/2026
+July                                            7/17/2026      7/17/2026   8/17/2026
+August                                          8/21/2026      8/21/2026   9/14/2026
+September                                       9/18/2026      9/18/2026  10/13/2025
+October                                        10/16/2026     10/16/2026  11/16/2026
+November                                       11/20/2026     11/20/2026  12/14/2026
+December                                       12/18/2026     12/18/2026   1/11/2027
+Potential Excise Distribution                  12/31/2026     12/31/2026   1/11/2027
+
+
+
+                                               Ex Date      Record Date Payable Date
+January                                          2/2/2026       2/2/2026    2/5/2026   State Street SPDR Portfolio Aggregate Bond ETF (SPAB)                                State Street Nuveen Municipal Bond ETF (MBND)
+February                                         3/2/2026       3/2/2026    3/5/2026   State Street SPDR Portfolio Corporate Bond ETF (SPBO)                                State Street Fixed Income Sector Rotation ETF (FISR)
+March                                            4/1/2026       4/1/2026    4/6/2026   State Street SPDR Portfolio High Yield Bond ETF (SPHY)                               State Street Ultra Short Term Bond ETF (ULST)
+April                                            5/1/2026       5/1/2026    5/6/2026   State Street SPDR Portfolio Intermediate Term Corporate Bond ETF (SPIB)              State Street My2026 Corporate Bond ETF (MYCF)
+May                                              6/1/2026       6/1/2026    6/4/2026   State Street SPDR Portfolio Intermediate Term Treasury ETF (SPTI)                    State Street My2027 Corporate Bond ETF (MYCG)
+June                                             7/1/2026       7/1/2026    7/7/2026   State Street SPDR Portfolio Long Term Corporate Bond ETF (SPLB)                      State Street My2028 Corporate Bond ETF (MYCH)
+July                                             8/3/2026       8/3/2026    8/6/2025   State Street SPDR Portfolio Long Term Treasury ETF (SPTL)                            State Street My2029 Corporate Bond ETF (MYCI)
+August                                           9/1/2026       9/1/2026    9/4/2026   State Street SPDR Portfolio Mortgage Backed Bond ETF (SPMB)                          State Street My2030 Corporate Bond ETF (MYCJ)
+September                                       10/1/2026      10/1/2026   10/6/2026   State Street SPDR Portfolio Short Term Corporate Bond ETF (SPSB)                     State Street My2031 Corporate Bond ETF (MYCK)
+October                                         11/2/2026      11/2/2026   11/5/2026   State Street SPDR Portfolio Short Term Treasury ETF (SPTS)                           State Street My2032 Corporate Bond ETF (MYCL)
+November                                        12/1/2026      12/1/2026   12/4/2026   State Street SPDR Portfolio TIPS ETF (SPIP)                                          State Street My2033 Corporate Bond ETF (MYCM)
+December                                       12/22/2026     12/22/2026  12/28/2026   State Street SPDR Portfolio Treasury ETF (SPTB)                                      State Street My2034 Corporate Bond ETF (MYCN)
+Potential Excise Distribution                  12/31/2026     12/31/2026    1/6/2027   State Street SPDR Bloomberg 1-3 Month T-Bill ETF (BIL)                               State Street My2035 Corporate Bond ETF (MYCO)
+                                                                                       State Street SPDR Bloomberg 3-12 Month T-Bill ETF (BILS)                             State Street My2026 Municipal Bond ETF (MYMF)
+                                                                                       State Street SPDR Bloomberg 1-10 Year TIPS ETF (TIPX)                                State Street My2027 Municipal Bond ETF (MYMG)
+                                                                                       State Street SPDR Bloomberg Convertible Securities ETF (CWB)                         State Street My2028 Municipal Bond ETF (MYMH)
+                                                                                       State Street SPDR Bloomberg Emerging Markets Local Bond ETF (EBND)                   State Street My2029 Municipal Bond ETF (MYMI)
+                                                                                       State Street SPDR Bloomberg Emerging Markets USD Bond ETF (EMHC)                     State Street My2030 Municipal Bond ETF (MYMJ)
+                                                                                       State Street SPDR Bloomberg High Yield Bond ETF (JNK)                                State Street My2031 Municipal Bond ETF (MYMK)
+                                                                                       State Street SPDR Bloomberg International Corporate Bond ETF (IBND)                  State Street My2027 High Yield Corporate Bond ETF (MYHA)
+                                                                                       State Street SPDR Bloomberg International Treasury Bond ETF (BWX)                    State Street My2028 High Yield Corporate Bond ETF (MYHB)
+                                                                                       State Street SPDR Bloomberg Investment Grade Floating Rate ETF (FLRN)                State Street My2029 High Yield Corporate Bond ETF (MYHC)
+                                                                                       State Street SPDR Bloomberg Short Term High Yield Bond ETF (SJNK)                    State Street My2030 High Yield Corporate Bond ETF (MYHD)
+                                                                                       State Street SPDR Bloomberg Short Term International Treasury Bond ETF (BWZ)         State Street My2031 High Yield Corporate Bond ETF (MYHE)
+                                                                                       State Street Blackstone Senior Loan ETF (SRLN)                                       State Street IG Public & Private Credit ETF (PRIV)
+                                                                                       State Street Blackstone High Income ETF(HYBL)                                        State Street Short Duration IG Public & Private Credit ETF (PRSD)
+                                                                                       State Street DoubleLine Total Return Tactical ETF (TOTL)                             State Street SPDR Portfolio Ultra Short T-Bill ETF (SPTU)
+                                                                                       State Street DoubleLine Short Duration Total Return Tactical ETF (STOT)              State Street SPDR S&P Leveraged Loan ETF (LVLN)
+                                                                                       State Street SPDR FTSE International Government Inflation-Protected Bond ETF (WIP)   State Street Prime Money Market ETF (MMK)
+                                                                                       State Street SPDR ICE Preferred Securities ETF (PSK)                                 State Street IG Public & Private ABS ETF (PRAB)
+                                                                                       State Street Loomis Sayles Opportunistic Bond ETF (OBND)                             State Street My2032 Municipal Bond ETF (MYML)
+                                                                                       State Street SPDR Nuveen ICE Municipal Bond ETF (TFI)                                State Street My2036 Corporate Bond ETF (MYCP)
+                                                                                       State Street SPDR Nuveen ICE Short Term Municipal Bond ETF (SHM)                     State Street My2032 High Yield Corporate Bond ETF (MYHF)
+                                                                                       State Street SPDR Nuveen ICE High Yield Municipal Bond ETF (HYMB)
+
+
+
+
+       Information Classification: Limited Access
+                                                                                       Dividend Distribution Schedule
+                                                                                                                                                                          Calendar Year 2026
+
+                                                                                                                     Monthly (continued)
+                                               Ex Date      Record Date Payable Date
+January                                          2/2/2026       2/2/2026    2/4/2026   State Street US Equity Premium Income ETF (SPIN)
+February                                         3/2/2026       3/2/2026    3/4/2026   State Street Communication Services Select Sector SPDR Premium Income ETF (XLCI)
+March                                            4/1/2026       4/1/2026    4/6/2026   State Street Consumer Discretionary Select Sector SPDR Premium Income ETF (XLYI)
+April                                            5/1/2026       5/1/2026    5/5/2026   State Street Consumer Staples Select Sector SPDR Premium Income ETF (XLSI)
+May                                              6/1/2026       6/1/2026    6/3/2026   State Street Energy Select Sector SPDR Premium Income ETF (XLEI)
+June                                             7/1/2026       7/1/2026    7/6/2026   State Street Financial Select Sector SPDR Premium Income ETF (XLFI)
+July                                             8/3/2026       8/3/2026    8/5/2026   State Street Health Care Select Sector SPDR Premium Income ETF (XLVI)
+August                                           9/1/2026       9/1/2026    9/3/2026   State Street Industrial Select Sector SPDR Premium Income ETF (XLII)
+September                                       10/1/2026      10/1/2026   10/5/2026   State Street Materials Select Sector SPDR Premium Income ETF (XLBI)
+October                                         11/2/2026      11/2/2026   11/4/2026   State Street Real Estate Select Sector SPDR Premium Income ETF (XLRI)
+November                                        12/1/2026      12/1/2026   12/3/2026   State Street Technology Select Sector SPDR Premium Income ETF (XLKI)
+December                                       12/29/2026     12/29/2026  12/31/2026   State Street Utilities Select Sector SPDR Premium Income ETF (XLUI)
+Potential Excise Distribution                  12/31/2026     12/31/2026    1/4/2027
+
+
+
+
+       Information Classification: Limited Access
+                                                                                       Dividend Distribution Schedule
+                                                                                                                                                                                                                Calendar Year 2026
+
+                                                                                                                           Quarterly
+                                               Ex Date      Record Date Payable Date
+March                                           3/20/2026      3/20/2026   4/30/2026   State Street SPDR S&P 500 ETF Trust (SPY)
+June                                            6/18/2026      6/18/2026   7/31/2026   State Street SPDR S&P MIDCAP 400 ETF Trust (MDY)
+September                                       9/18/2026      9/18/2026  10/30/2026
+December                                       12/18/2026     12/18/2026   1/29/2027
+Potential Excise Distribution                  12/31/2026     12/31/2026   1/29/2027
+
+
+                                               Ex Date      Record Date Payable Date
+March                                           3/23/2026      3/23/2026   3/25/2026   State Street SPDR Portfolio S&P 400 Mid Cap ETF (SPMD)                   State Street SPDR S&P Kensho Intelligent Structures ETF (SIMS)
+June                                            6/22/2026      6/22/2026   6/24/2026   State Street SPDR Portfolio S&P 500 Growth ETF (SPYG)                    State Street SPDR S&P Kensho Smart Mobility ETF (HAIL)
+September                                       9/21/2026      9/21/2026   9/23/2026   State Street SPDR Portfolio S&P 500 Value ETF (SPYV)                     State Street SPDR S&P Kensho Future Security ETF (FITE)
+December                                       12/21/2026     12/21/2026  12/23/2026   State Street SPDR Portfolio S&P 600 Small Cap ETF (SPSM)                 State Street SPDR S&P Kensho New Economies Composite ETF (KOMP)
+Potential Excise Distribution                  12/31/2026     12/31/2026    1/5/2027   State Street SPDR Portfolio S&P 1500 Composite Stock Market ETF (SPTM)   State Street SPDR S&P Kensho Clean Power ETF (CNRG)
+                                                                                       State Street SPDR Portfolio Europe ETF (SPEU)                            State Street SPDR S&P Kensho Final Frontiers ETF (ROKT)
+                                                                                       State Street SPDR Portfolio S&P 500 High Dividend ETF (SPYD)             State Street SPDR S&P Emerging Markets Dividend ETF (EDIV)
+                                                                                       State Street SPDR Portfolio S&P Sector Neutral Dividend ETF (SPDG)       State Street SPDR S&P Global Dividend ETF (WDIV)
+                                                                                       State Street SPDR S&P 400 Mid Cap Value ETF (MDYV)                       State Street SPDR S&P International Dividend ETF (DWX)
+                                                                                       State Street SPDR S&P 400 Mid Cap Growth ETF(MDYG)                       State Street Communication Services Select Sector SPDR ETF (XLC)
+                                                                                       State Street SPDR S&P 500 ESG ETF (EFIV)                                 State Street Consumer Staples Select Sector SPDR ETF (XLP)
+                                                                                       State Street SPDR S&P 500 Fossil Fuel Reserves Free ETF (SPYX)           State Street Consumer Discretionary Select Sector SPDR ETF (XLY)
+                                                                                       State Street SPDR S&P 600 Small Cap Growth ETF (SLYG)                    State Street Energy Select Sector SPDR ETF (XLE)
+                                                                                       State Street SPDR S&P 600 Small Cap Value ETF (SLYV)                     State Street Financial Select Sector SPDR ETF (XLF)
+                                                                                       State Street SPDR S&P 1500 Value Tilt ETF (VLU)                          State Street Health Care Select Sector SPDR ETF (XLV)
+                                                                                       State Street SPDR S&P 1500 Momentum Tilt ETF (MMTM)                      State Street Industrial Select Sector SPDR ETF (XLI)
+                                                                                       State Street SPDR S&P Aerospace & Defense ETF (XAR)                      State Street Materials Select Sector SPDR ETF (XLB)
+                                                                                       State Street SPDR S&P Bank ETF (KBE)                                     State Street Real Estate Select Sector SPDR ETF (XLRE)
+                                                                                       State Street SPDR S&P Biotech ETF (XBI)                                  State Street Technology Select Sector SPDR ETF (XLK)
+                                                                                       State Street SPDR S&P Capital Markets ETF (KCE)                          State Street Utilities Select Sector SPDR ETF (XLU)
+                                                                                       State Street SPDR S&P Dividend ETF (SDY)                                 State Street SPDR Dow Jones Global Real Estate ETF (RWO)
+                                                                                       State Street SPDR S&P Health Care Equipment ETF (XHE)                    State Street® SPDR Dow Jones International Real Estate ETF (RWX)
+                                                                                       State Street SPDR S&P Health Care Services ETF (XHS)                     State Street SPDR Dow Jones® REIT ETF (RWR)
+                                                                                       State Street SPDR S&P Homebuilders ETF (XHB)                             State Street SPDR EURO STOXX 50 ETF (FEZ)
+                                                                                       State Street SPDR S&P Insurance ETF (KIE)                                State Street SPDR FactSet Innovative Technology ETF (XITK)
+                                                                                       State Street SPDR S&P Metals & Mining ETF (XME)                          State Street SPDR Global Dow ETF (DGT)
+                                                                                       State Street SPDR S&P Oil & Gas Equipment & Services ETF (XES)           State Street SPDR NYSE Technology ETF (XNTK)
+                                                                                       State Street SPDR S&P Oil & Gas Exploration & Production ETF (XOP)       State Street SPDR Russell 1000 Momentum Focus ETF (ONEO)
+                                                                                       State Street SPDR S&P Pharmaceuticals ETF (XPH)                          State Street SPDR Russell 1000 Yield Focus ETF (ONEY)
+                                                                                       State Street SPDR S&P Regional Banking ETF (KRE)                         State Street SPDR Russell 1000 Low Volatility Focus ETF (ONEV)
+                                                                                       State Street SPDR S&P Retail ETF (XRT)                                   State Street SPDR US Large Cap Low Volatility Index ETF (LGLV)
+                                                                                       State Street SPDR S&P Semiconductor ETF (XSD)                            State Street SPDR US Small Cap Low Volatility Index ETF (SMLV)
+                                                                                       State Street SPDR S&P Software & Services ETF (XSW)                      State Street SPDR Portfolio Nasdaq 100 ETF (QNDX)
+                                                                                       State Street SPDR S&P Telecom ETF (XTL)                                  State Street SPDR UC Investments 90/10 Endowment Strategy Index ETF (UCBG)
+                                                                                       State Street SPDR S&P Transportation ETF (XTN)
+
+
+
+
+       Information Classification: Limited Access
+                                                                                       Dividend Distribution Schedule
+                                                                                                                                               Calendar Year 2026
+
+                                                                                                                      Quarterly (continued)
+                                               Ex Date      Record Date Payable Date
+March                                           3/26/2026      3/26/2026   3/30/2026   State Street Multi-Asset Real Return ETF (RLY)
+June                                            6/25/2026      6/25/2026   6/29/2026   State Street Income Allocation ETF (INKM)
+September                                       9/25/2026      9/25/2026   9/29/2026   State Street Global Allocation ETF (GAL)
+December                                       12/29/2026     12/29/2026  12/31/2026   State Street US Sector Rotation ETF (XLSR)
+Potential Excise Distribution                  12/31/2026     12/31/2026    1/5/2027
+
+
+                                               Ex Date      Record Date Payable Date
+March                                            3/2/2026       3/2/2026    3/4/2026   State Street SPDR MSCI USA Gender Diversity ETF (SHE)
+June                                             6/1/2026       6/1/2026    6/3/2026
+September                                        9/1/2026       9/1/2026    9/3/2026
+December                                        12/2/2026      12/2/2026   12/4/2026
+Potential Excise Distribution                  12/31/2026     12/31/2026    1/5/2027
+
+                                               Ex Date      Record Date Payable Date
+March                                           3/13/2026      3/13/2026   3/17/2026   State Street SPDR Portfolio S&P 500 ETF (SPYM)
+June                                            6/12/2026      6/12/2026   6/16/2026
+September                                       9/11/2026      9/11/2026   9/15/2026
+December                                       12/11/2026     12/11/2026  12/15/2026
+Potential Excise Distribution                  12/31/2026     12/31/2026    1/5/2027
+
+
+
+
+       Information Classification: Limited Access
+                                                                                       Dividend Distribution Schedule
+                                                                                                                                                                                                                               Calendar Year 2026
+
+                                                                                                                         Semi-Annual
+                                               Ex Date      Record Date Payable Date
+June                                             6/1/2026       6/1/2026    6/5/2026   State Street SPDR Portfolio MSCI Global Stock Market ETF (SPGM)                        State Street SPDR MSCI Emerging Markets StrategicFactors ETF (QEMM)
+December                                        12/2/2026      12/2/2026   12/8/2026   State Street SPDR MSCI ACWI ex-US ETF (CWI)                                            State Street SPDR MSCI Emerging Markets Fossil Fuel Reserves Free ETF (EEMX)
+Potential Excise Distribution                  12/31/2026     12/31/2026    1/7/2027   State Street SPDR MSCI ACWI Climate Paris Aligned ETF (NZAC)                           State Street SPDR MSCI USA StrategicFactors ETF (QUS)
+                                                                                       State Street SPDR MSCI EAFE StrategicFactors ETF (QEFA)                                State Street SPDR MSCI World StrategicFactors ETF (QWLD)
+                                                                                       State Street SPDR MSCI EAFE Fossil Fuel Reserves Free ETF (EFAX)
+
+
+                                               Ex Date      Record Date Payable Date
+June                                             6/1/2026       6/1/2026    6/3/2026   State Street SPDR S&P Global Infrastructure ETF (GII)
+December                                       12/17/2026     12/17/2026  12/21/2026   State Street SPDR S&P Global Natural Resources ETF (GNR)
+Potential Excise Distribution                  12/31/2026     12/31/2026    1/5/2027   State Street SPDR S&P North American Natural Resources ETF (NANR)
+
+
+                                               Ex Date      Record Date Payable Date
+June                                            6/22/2026      6/22/2026   6/26/2026   State Street SPDR Portfolio Developed World ex-US ETF (SPDW)                           State Street SPDR S&P Emerging Asia Pacific ETF (GMF)
+December                                       12/21/2026     12/21/2026  12/28/2026   State Street SPDR Portfolio Emerging Markets ETF (SPEM)                                State Street SPDR S&P Emerging Markets Small Cap ETF (EWX)
+Potential Excise Distribution                  12/31/2026     12/31/2026    1/7/2027   State Street SPDR S&P China ETF (GXC)                                                  State Street SPDR S&P International Small Cap ETF (GWX)
+                                                                                       State Street SPDR S&P Emerging Markets ex-China ETF (XCNY)
+
+
+
+                                                                                                                             Annual
+                                               Ex Date      Record Date Payable Date
+December                                       12/29/2026     12/29/2026  12/31/2026   State Street SPDR Bloomberg Enhanced Roll Yield Commodity Strategy No K-1 ETF (CERY)
+Potential Excise Distribution                  12/31/2026     12/31/2026    1/5/2027   State Street Galaxy Transformative Tech Accelerators ETF (TEKX)
+                                                                                       State Street Galaxy Digital Asset Ecosystem ETF (DECO)
+                                                                                       State Street Galaxy Hedged Digital Asset Ecosystem ETF (HECO)
+                                                                                       State Street Bridgewater All Weather ETF (ALLW)
+
+
+
+
+       Information Classification: Limited Access
+                                                                                       Dividend Distribution Schedule
+                                                                                                                                                                                                                                                    Calendar Year 2026
+
+Glossary
+Ex-dividend date is the day on which all shares bought and sold no longer come attached with the right to receive the most recently declared dividend.
+Record Date is the date on which a Fund reviews its books to determine its "shareholders of record." Investors listed as shareholders of record on this date will receive the Fund's
+dividend payment.
+
+Payable date is the date on which a Fund pays a dividend to its shareholders of record.
+
+Distributions paid in January, but declared by a Fund in October, November or December of the previous year, payable to shareholders of record in such a
+month, may be taxable to you in the previous year.
+
+Important Risk Information
+State Street Global Advisors (SSGA) is now State Street Investment Management. Please click here for more information. (https://www.ssga.com)
+
+ETFs trade like stocks, are subject to investment risk, fluctuate in market value and may trade at prices above or below the ETF's net asset value. Brokerage commissions and ETF
+expenses will reduce returns.
+
+The ETFs listed above have historically paid dividends to investors and/or invest in the securities of dividend paying issuers; however, there is no guarantee that these
+ETFs will consistently pay dividends to investors in the future or will appreciate in value. Investors could lose money by investing in ETFs.
+
+Investing involves risk including the risk of loss of principal.
+
+The whole or any part of this work may not be reproduced, copied or transmitted or any of its contents disclosed to third parties without State Street Global Advisors’ express written consent.
+
+All information is from SSGA unless otherwise noted and has been obtained from sources believed to be reliable, but its accuracy is not guaranteed. There is no representation or warranty as to the current accuracy, reliability or completeness of, nor liability for,
+decisions based on such information and it should not be relied on as such.
+
+The information provided does not constitute investment advice and it should not be relied on as such. It should not be considered a solicitation to buy or an offer to sell a security. It does not take into account any investor's particular investment objectives, strategies,
+tax status or investment horizon. You should consult your tax and financial advisor.
+
+Prior to 02/26/2021, the SPDR® Blackstone Senior Loan ETF was known as the SPDR® Blackstone / GSO Senior Loan ETF.
+
+
+Disclaimer: Important Information for PRAB, PRIV, and PRSD: Apollo Global Securities, LLC (“Apollo”) is not a sponsor, distributor, promoter, or investment adviser to the Fund. Apollo has entered into a contractual agreement with the Fund whereby it is obligated to
+provide intraday, firm, executable bids on Fund holdings sourced by Apollo (each an “AOS Investment”) to the Fund on a daily basis at certain intervals and is required to repurchase AOS Investments that the Fund has purchased at the firm bid price offered by Apollo,
+subject to, but not limited to, contractual levels designed to cover the estimated seven-day stress redemption rate as of the date hereof. The sale of AOS Investments to Apollo is not exclusive and the Fund may seek to sell AOS Investments to other counterparties.
+
+Bridgewater provides a daily model portfolio to SSGA Funds Management Inc. (SSGA FM) based on their proprietary All Weather® asset allocation approach. The model portfolio is specific to the Fund. Based on Bridgewater's investment recommendations, SSGA FM
+purchases and sells securities and/or instruments for the Fund. SSGA FM seeks to implement Bridgewater's investment recommendations, but may change the Fund's investment allocation at any time.
+
+KENSHO® is a registered service mark of Kensho Technologies Inc. ("Kensho"), and all Kensho financial indices in the Kensho New Economies® family and such indices' corresponding service marks have been licensed by the Licensee in connection with the SPDR
+Kensho Intelligent Structures ETF, SPDR Kensho Smart Mobility ETF, SPDR Kensho Future Security ETF, SPDR Kensho Clean Power ETF, SPDR Kensho Final Frontiers ETF and SPDR Kensho New Economies Composite ETF (collectively, the "SPDR ETFs"). The
+SPDR ETFs are not marketed, sold, or sponsored by Kensho, Kensho’s affiliates, or Kensho's third party licensors.
+
+Kensho is not an investment adviser or broker-dealer and Kensho makes no representation regarding the advisability of investing in any investment fund, other investment vehicle, security or other financial product regardless of whether or not it is based on, derived
+from, or included as a constituent of any Kensho New Economies© family index. Kensho bears no responsibility or liability for any business decision, input, recommendation, or action taken based on Kensho indices or any products based on, derived from, or included
+as a constituent of any such index. All referenced names and trademarks are the property of their respective owners.
+
+This communication is not intended to be an investment recommendation or investment advice and should not be relied upon as such.
+
+The trademarks and service marks referenced herein are the property of their respective owners. Third party data providers make no warranties or representations of any kind relating to the accuracy, completeness or timeliness of the data and have no liability for
+damages of any kind relating to the use of such data.
+
+“Dow Jones Industrial AverageSM”, “DJIA®”, “Dow Jones®”, “The Dow®” and “DIAMONDS®” are trademarks and service marks of Standard & Poor’s Financial Services LLC and have been licensed for use by
+S&P Dow Jones Indices LLC (“S&P”) and sublicensed for use by State Street Global Markets, LLC. The Trust, PDR Services LLC and NYSE Arca, Inc. are permitted to use these trademarks and service marks pursuant
+to separate “Sublicenses.” The Trust is not sponsored, endorsed, sold or promoted by S&P, its affiliates or its third party licensors.
+
+
+The S&P 500® Index is a product of S&P Dow Jones Indices LLC or its affiliates ("S&P DJI") and have been licensed for use by State Street Global Advisors. S&P®, SPDR®, S&P 500®,US 500 and the 500 are trademarks of Standard & Poor's Financial Services LLC
+("S&P"); Dow Jones® is a registered trademark of Dow Jones Trademark Holdings LLC ("Dow Jones") and has been licensed for use by S&P Dow Jones Indices; and these trademarks have been licensed for use by S&P DJI and sublicensed for certain purposes by
+State Street Global Advisors. The fund is not sponsored, endorsed, sold or promoted by S&P DJI, Dow Jones, S&P, their respective affiliates, and none of such parties make any representation regarding the advisability of investing in such product(s) nor do they have
+any liability for any errors, omissions, or interruptions of these indices.
+
+
+
+
+       Information Classification: Limited Access
+                                                                                   Dividend Distribution Schedule
+                                                                                                                                                                                                                                     Calendar Year 2026
+
+BLOOMBERG®, a trademark and service mark of Bloomberg Finance L.P. and its affiliates, has been licensed for use in connection with the listing and trading of the SPDR Bloomberg ETFs.
+
+Bridgewater® and All Weather® are registered trademarks of Bridgewater® Associates, LP.
+
+DoubleLine is a registered trademark of DoubleLine Capital LP.
+
+The Russell 1000® Index, Russell 2000® Index, Russell 3000® Index, and Russell Small Cap Completeness® Index are trademarks of Russell Investment Group
+and have been licensed for use by State Street Bank and Trust Company through its State Street Global Advisors Division. The Products are not sponsored, endorsed,
+sold or promoted by Russell Investment Group and Russell Investment Group makes no representation regarding the advisability of investing in the Product.
+
+Distributor: State Street Global Advisors Funds Distributors, LLC, member FINRA (https://www.finra.org/), SIPC (https://www.sipc.org/), an indirect and wholly-owned subsidiary of
+State Street Corporation. References to State Street may include State Street Corporation and its affiliates. One Congress Street Boston, MA 02114. ALPS Distributors, Inc. (ALPS)
+is the distributor for SPY, MDY, and DIA, all unit investment trusts. SSGA FD and ALPS are not affiliated.
+
+SSGA Funds Management, Inc. has retained Blackstone Liquid Credit Strategies LLC, DoubleLine Capital LP, Nuveen Asset Management, LLC, Loomis, Sayles & Company, L.P.,
+Galaxy Digital Capital Management L.P. and Bridgewater Associates, LP as the respective sub-adviser.
+
+State Street Global Advisors Funds Distributors, LLC is not affiliated with Blackstone Liquid Credit Strategies LLC, DoubleLine Capital LP, Nuveen Asset Management, LLC, Loomis, Sayles & Company, L.P., Galaxy Digital Capital Management L.P.
+and Bridgewater Associates, LP
+
+
+
+
+Before investing, consider the funds’ investment objectives, risks, charges and expenses. To obtain a prospectus or summary prospectus which contains this and other information,
+call 1-866-787-2257 or visit www.ssga.com. Read it carefully.
+Not FDIC Insured. No Bank Guarantee. May Lose Value
+State Street Investment Management, One Congress Street, Boston, MA 02114.
+
+Expiration Date: 12/31/2026
+
+9121097.1.1.AM.RTL
+SPD003792
+
+© 2026 State Street Corporation - All Rights Reserved.
+
+
+
+
+       Information Classification: Limited Access
+

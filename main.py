@@ -56,8 +56,8 @@ def main():
                 parser.error(str(exc))
             print(f'Allocated 100 existing {symbol} shares to covered_call; no broker orders placed.')
             return
-        logging.info('OptionsCovered paper=%s dry_run=%s new_entries=%s', settings.paper,
-                     settings.dry_run, settings.enable_new_entries)
+        logging.info('OptionsCovered paper=%s dry_run=%s new_entries=%s auto_buy_shares=%s', settings.paper,
+                     settings.dry_run, settings.enable_new_entries, settings.auto_buy_shares)
         while True:
             try:
                 bot.cycle()

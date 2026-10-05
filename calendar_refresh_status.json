@@ -1,0 +1,15 @@
+{
+  "checked_at": "2026-10-05T06:23:49.024698-04:00",
+  "providers": {
+    "ishares": {
+      "error": "URLError",
+      "note": "Existing verification dates unchanged",
+      "status": "fetch_failed"
+    },
+    "spdr": {
+      "error": "URLError",
+      "note": "Existing verification dates unchanged",
+      "status": "fetch_failed"
+    }
+  }
+}

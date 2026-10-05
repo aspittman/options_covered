@@ -1,9 +1,79 @@
 # OptionsCovered
 
-OptionsCovered sells calls backed by explicitly allocated shares through Alpaca. It runs two styles: **regular**
+OptionsCovered can select and buy paper stock lots, then sell covered calls through Alpaca. It runs two styles: **regular**
 (the original daily strategy) and **oasis** (intraday EMA-cloud/momentum entries).
 Start with your own paper account and disabled entries. This guide is for a fresh
 installation; it does not require someone else's `.env`, virtual environment, or logs.
+
+## Automatic paper buy-write workflow
+
+With `AUTO_BUY_SHARES=true`, the bot scans its configured watchlist in order and
+selects stock/call pairs using the existing daily indicators, Oasis momentum,
+option delta, bid/ask spread, volume, open interest, and dated event checks. It
+buys stock only after finding an eligible call. It does not automatically purchase
+SLV or buy shares simply because they fit the budget.
+
+1. Check the underlying's daily suitability, market regime, loss cooldown and
+   calendar; select a qualifying standard call.
+2. Recheck the stock ask/spread and call, available cash, existing broker exposure,
+   and the entire 100-share cost against the fixed $25,000 virtual allocation.
+3. Reserve the full stock limit cost and persist a unique order ID **before**
+   submitting a regular-session, DAY limit order for exactly 100 paper shares.
+4. Reconcile confirmed fills into owned allocations at actual cost. Wait for the
+   complete lot and broker-confirmed, unreserved coverage before selling a call.
+5. Recheck the signal, call chain, calendar, actual share cost and quotes before
+   submitting the call. If the setup expires, retain the shares for a later setup.
+
+This is sequential, not an atomic combined order: the stock can fill without a
+call subsequently filling. Calls use the existing monitored exits; stock exposure
+remains while a call is closed, canceled or expires. **Uncovered full lots are held
+and reused for later qualifying calls; the bot does not automatically sell stock.**
+Confirmed assignment removes delivered shares and records their actual stock P/L.
+Partial canceled stock lots stay marked, budgeted, and flagged `partial_lot_review`;
+no call is sold against fewer than 100 shares and no automatic top-up is attempted.
+Review partial lots in the paper account and ledger before making manual changes.
+
+Outstanding purchases time out after `ENTRY_TIMEOUT_MINUTES`, or are canceled when
+entries/automatic acquisition are disabled, the market closes, a shared loss block
+appears, or Oasis reaches its cutoff. Cash remains reserved until cancellation is
+confirmed. Unknown submissions are looked up by saved client ID; they are never
+blindly retried. The same underlying/signal bar cannot create a second stock order.
+
+The default maximum is two allocated/pending stock lots (`MAX_CONTRACTS`), within
+`MAX_COVERED_VALUE`, `MAX_UNDERLYING_VALUE_PER_POSITION` and the fixed virtual budget.
+Pending and partial stock fills count toward that budget. Stock purchases use cash,
+not margin, with `STOCK_CASH_BUFFER=1000`; `MAX_STOCK_SPREAD=0.005` means a maximum
+0.5% bid/ask spread. They cannot merge with an existing broker stock/option position
+or order in the same underlying. Existing foreign shares require manual allocation.
+
+Automatic stock acquisition is **paper-only**; `AUTO_BUY_SHARES=true` with
+`ALPACA_PAPER=false` is rejected. `DRY_RUN=true` prevents all order submissions and
+cancellations, including stock purchases. To run the paper workflow after verifying
+setup, use `ALPACA_PAPER=true`, `AUTO_BUY_SHARES=true`, `ENABLE_NEW_ENTRIES=true`, and
+`DRY_RUN=false`, then restart. No live stock-order path is added.
+
+### Calendar coverage and retained-share reporting
+
+Maintain local `events.json` from verified issuer/company information. Every
+candidate needs `verified_on`, `valid_through`, `earnings`, and `ex_dividend` as in
+`events.example.json`. Cover the planned expiration and check events through the
+following day; reverify at least every seven days. Unknown data blocks purchases
+and call entries. The bot does not fabricate event-free calendars for the watchlist.
+
+The local calendar prepared on September 15, 2026 covers **SLV only**, through
+October 31, and needs reverification after September 22. Other symbols require
+verified calendar rows before they can be purchased. SLV is in the default universe;
+an explicit `UNDERLYINGS` override still controls your own scan list. Calendar
+coverage alone is not a buy signal. The example calendar's year-2000 dates remain
+intentionally invalid for fresh installations.
+
+All stock intents and incremental fills are stored in the same SQLite ledger as
+calls. `stock_lifecycle` in paper results distinguishes `stock_order_pending`,
+`partial_lot_review`, `call_order_pending`, `covered`, and `uncovered_reusable`.
+`pending_stock_reservation` shows committed but unfilled cash. Lifetime return
+includes marked partial/full shares and confirmed stock dispositions as well as
+option P/L. Missing stock marks show incomplete performance, not assumed zero loss.
+The 20% Oasis stops apply to the **call leg**, not to the stock lot or combined trade.
 
 ## 1. Install prerequisites
 
@@ -125,26 +195,25 @@ OPTION_TRAILING_STOP_PERCENT=0.20
    `.env` or `logs/`. Never point a friend’s bot at your loss ledgers or report files.
    If you change brokerage account, use a separate installation and fresh ledger.
 
-### Covered-call prerequisite: allocate your own paper shares
+### Choose automatic acquisition or existing-share allocation
 
-This bot does not buy stock for you. Before enabling entries, your paper account
-must own an unreserved lot of 100 shares of a supported underlying. Verify the
-actual filled per-share cost in Alpaca. Reserve this lot exclusively for this bot;
-do not allocate the same shares to another covered-call bot or manual call sale.
+The example enables `AUTO_BUY_SHARES=true` while keeping entries disabled and dry
+run enabled for initial setup. Automatic mode selects an eligible pair, buys the
+paper shares and allocates confirmed fills itself; no manual pre-purchase is needed.
+Prepare the verified event calendar described above before expecting entries.
 
-From this bot's folder, register the existing lot using its symbol and actual cost:
+For shares you already own, set `AUTO_BUY_SHARES=false` if you only want the original
+covered-call mode, and explicitly allocate an unreserved 100-share lot:
 
 ```text
 python main.py --allocate-shares SYMBOL --share-cost ACTUAL_COST
 ```
 
-Replace `SYMBOL` and `ACTUAL_COST` with your verified values; they are placeholders.
-On Windows use `.\venv\Scripts\python.exe` instead of `python`.
-This command records a local allocation and verifies broker coverage; it places no
-stock orders. A $250 stock costs $25,000 per 100-share lot, so the virtual allocation
-and coverage caps must accommodate the entire stock lot, not just call premium.
-Closing an Oasis call leaves the stock holding in place. Stock losses count in this
-bot's combined return, even when no call is open.
+Replace the placeholders with the actual symbol and verified per-share cost for the
+specific lot. On Windows use `.\venv\Scripts\python.exe` instead of `python`.
+Stop the other Covered instance first. This allocation command places no orders.
+Never allocate the same shares to two strategies. A $250 share price requires
+$25,000 for 100 shares; budget the entire stock cost rather than the call premium.
 
 The example also sets `DRY_RUN=true`: this blocks **all** submissions and cancellations,
 including exits. After verifying setup, change it to `DRY_RUN=false` for paper order
@@ -207,7 +276,7 @@ prevent a trade. Do not weaken safeguards just to force activity.
    and strategy settings. Regular retains its original stops. **Oasis alone** uses
    the 20% fixed option stop and 20% option-premium trail.
 2. Stop the process with **Ctrl+C**. Change `.env` to `ENABLE_NEW_ENTRIES=true`.
-   Also set `DRY_RUN=false` to allow paper order management.
+   Set `AUTO_BUY_SHARES=true` and `DRY_RUN=false` to allow automatic paper stock/call orders.
 3. Restart with the same `main.py` command, verify the mode, and monitor the first
    submissions and confirmed fills in both the terminal and Alpaca paper dashboard.
 4. To pause new entries, stop, set `ENABLE_NEW_ENTRIES=false`, and restart.
